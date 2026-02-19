@@ -31,7 +31,7 @@ export function createBackend(config: Config): IBackend {
     case "sagemaker": {
       const requestFormat =
         (config.provider.config?.["requestFormat"] as RequestFormat | undefined) ??
-        RequestFormat.Sagemaker;
+        RequestFormat.OpenAI;
       return SageMakerBackend.create(baseURL, requestFormat);
     }
     default:
