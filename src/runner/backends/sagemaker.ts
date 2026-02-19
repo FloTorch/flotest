@@ -1,0 +1,376 @@
+import { z } from "zod";
+import { SignatureV4 } from "@smithy/signature-v4";
+import { Hash } from "@smithy/hash-node";
+import { HttpRequest } from "@smithy/protocol-http";
+import type { IBackend, BackendResponse } from "../backend.ts";
+import { countTokens } from "../../generator/tokenizer.ts";
+import { validateEnv } from "../../schemas/config.zod.ts";
+
+const EnvSchema = z.object({
+  AWS_REGION: z.string().default("us-east-1"),
+  AWS_ACCESS_KEY_ID: z.string().min(1, "AWS_ACCESS_KEY_ID is required"),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1, "AWS_SECRET_ACCESS_KEY is required"),
+  AWS_SESSION_TOKEN: z.string().optional(),
+});
+
+export enum RequestFormat {
+  Sagemaker = "sagemaker",
+  OpenAI = "openai",
+}
+
+export interface SageMakerConfig {
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+  baseURL?: string;
+  requestFormat?: RequestFormat;
+}
+
+class Sha256Hash extends Hash {
+  constructor(secret?: string | ArrayBuffer | ArrayBufferView) {
+    super("sha256", secret);
+  }
+}
+
+export class SageMakerBackend implements IBackend {
+  name = "sagemaker";
+  private signer: SignatureV4;
+  private baseURL: string;
+  private requestFormat: RequestFormat;
+
+  static create(baseURL?: string, requestFormat?: RequestFormat): SageMakerBackend {
+    const env = validateEnv(EnvSchema, "sagemaker");
+    const region = env.AWS_REGION;
+    return new SageMakerBackend({
+      region,
+      accessKeyId: env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+      sessionToken: env.AWS_SESSION_TOKEN,
+      baseURL,
+      requestFormat,
+    });
+  }
+
+  constructor(config: SageMakerConfig) {
+    this.baseURL = config.baseURL ?? `https://runtime.sagemaker.${config.region}.amazonaws.com`;
+    this.requestFormat = config.requestFormat ?? RequestFormat.Sagemaker;
+    this.signer = new SignatureV4({
+      service: "sagemaker",
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        sessionToken: config.sessionToken,
+      },
+      sha256: Sha256Hash,
+    });
+  }
+
+  async request(
+    prompt: string,
+    model: string,
+    maxTokens: number,
+    systemPrompt: string | undefined,
+    params: Record<string, unknown> | undefined,
+    streaming: boolean,
+    signal: AbortSignal,
+  ): Promise<BackendResponse> {
+    const path = streaming
+      ? `/endpoints/${model}/invocations-response-stream`
+      : `/endpoints/${model}/invocations`;
+
+    const body = this.buildRequestBody(prompt, maxTokens, systemPrompt, params, streaming);
+    const bodyStr = JSON.stringify(body);
+
+    const url = new URL(path, this.baseURL);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (streaming) {
+      headers["X-Amzn-SageMaker-InferenceComponent-Inference-Code-Accepts"] =
+        "application/jsonlines";
+    }
+
+    const httpRequest = new HttpRequest({
+      method: "POST",
+      protocol: url.protocol,
+      hostname: url.hostname,
+      port: url.port ? Number(url.port) : undefined,
+      path: url.pathname,
+      headers,
+      body: bodyStr,
+    });
+
+    const signed = await this.signer.sign(httpRequest);
+
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: signed.headers as Record<string, string>,
+      body: bodyStr,
+      signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const error = new Error(`HTTP ${response.status}: ${text}`);
+      (error as unknown as Record<string, unknown>).code = String(response.status);
+      throw error;
+    }
+
+    if (streaming) {
+      return this.parseEventStream(response);
+    }
+    return this.parseResponse(response);
+  }
+
+  private buildRequestBody(
+    prompt: string,
+    maxTokens: number,
+    systemPrompt: string | undefined,
+    params: Record<string, unknown> | undefined,
+    streaming: boolean,
+  ): Record<string, unknown> {
+    const messages: { role: string; content: string }[] = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
+
+    if (this.requestFormat === RequestFormat.OpenAI) {
+      return {
+        messages,
+        max_tokens: maxTokens,
+        stream: streaming,
+        ...params,
+      };
+    }
+
+    return {
+      inputs: [messages],
+      parameters: {
+        max_new_tokens: maxTokens,
+        ...params,
+      },
+    };
+  }
+
+  // ---- Streaming: eventstream binary parser ----
+
+  private async parseEventStream(response: Response): Promise<BackendResponse> {
+    const body = response.body;
+    if (!body) throw new Error("No response body");
+
+    const reader = body.getReader();
+    let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+    let generatedText = "";
+    let ttftMs = 0;
+    const requestStart = performance.now();
+    let lastChunkTime = requestStart;
+    const interTokenLatencies: number[] = [];
+    let firstToken = true;
+    let outputTokens = 0;
+    let sseBuffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer = concatBytes(buffer, value);
+
+        while (true) {
+          const parsed = readEventStreamMessage(buffer);
+          if (!parsed) break;
+
+          const { message, bytesConsumed } = parsed;
+          buffer = buffer.slice(bytesConsumed);
+
+          if (message.headers[":message-type"] === "exception") {
+            const errText = new TextDecoder().decode(message.payload);
+            throw new Error(
+              `SageMaker stream exception (${message.headers[":event-type"]}): ${errText}`,
+            );
+          }
+
+          if (message.headers[":event-type"] !== "PayloadPart") continue;
+
+          const payloadText = new TextDecoder().decode(message.payload);
+          const now = performance.now();
+
+          if (this.requestFormat === RequestFormat.OpenAI) {
+            sseBuffer += payloadText;
+            const lines = sseBuffer.split("\n");
+            sseBuffer = lines.pop()!;
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data: ")) continue;
+              const data = trimmed.slice(6);
+              if (data === "[DONE]") continue;
+
+              let chunk: {
+                choices?: {
+                  delta?: { content?: string };
+                }[];
+                usage?: { completion_tokens?: number };
+              };
+              try {
+                chunk = JSON.parse(data);
+              } catch {
+                continue;
+              }
+
+              const content = chunk.choices?.[0]?.delta?.content;
+              if (content) {
+                if (firstToken) {
+                  ttftMs = now - requestStart;
+                  firstToken = false;
+                } else {
+                  interTokenLatencies.push(now - lastChunkTime);
+                }
+                lastChunkTime = now;
+                generatedText += content;
+              }
+
+              if (chunk.usage?.completion_tokens) {
+                outputTokens = chunk.usage.completion_tokens;
+              }
+            }
+          } else {
+            const jsonLines = payloadText.split("\n").filter((l) => l.trim());
+            for (const jsonLine of jsonLines) {
+              let chunk: Record<string, unknown>;
+              try {
+                chunk = JSON.parse(jsonLine);
+              } catch {
+                continue;
+              }
+
+              const tokenText = (chunk.token as { text?: string } | undefined)?.text;
+              if (tokenText) {
+                if (firstToken) {
+                  ttftMs = now - requestStart;
+                  firstToken = false;
+                } else {
+                  interTokenLatencies.push(now - lastChunkTime);
+                }
+                lastChunkTime = now;
+                generatedText += tokenText;
+              } else if (typeof chunk.generated_text === "string" && !generatedText) {
+                generatedText = chunk.generated_text;
+              }
+
+              const details = chunk.details as { generated_tokens?: number } | undefined;
+              if (details?.generated_tokens) {
+                outputTokens = details.generated_tokens;
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (outputTokens === 0) {
+      outputTokens = countTokens(generatedText);
+    }
+
+    return { generatedText, outputTokens, ttftMs, interTokenLatencies };
+  }
+
+  // ---- Non-streaming ----
+
+  private async parseResponse(response: Response): Promise<BackendResponse> {
+    const requestStart = performance.now();
+    const json = (await response.json()) as unknown;
+    const ttftMs = performance.now() - requestStart;
+
+    let generatedText = "";
+    let outputTokens = 0;
+
+    if (this.requestFormat === RequestFormat.OpenAI) {
+      const data = json as {
+        choices?: { message?: { content?: string } }[];
+        usage?: { completion_tokens?: number };
+      };
+      generatedText = data.choices?.[0]?.message?.content ?? "";
+      outputTokens = data.usage?.completion_tokens ?? 0;
+    } else {
+      if (Array.isArray(json)) {
+        generatedText = (json[0] as { generated_text?: string })?.generated_text ?? "";
+      } else {
+        const data = json as { generated_text?: string };
+        generatedText = data.generated_text ?? "";
+      }
+    }
+
+    if (outputTokens === 0) {
+      outputTokens = countTokens(generatedText);
+    }
+
+    return {
+      generatedText,
+      outputTokens,
+      ttftMs,
+      interTokenLatencies: [],
+    };
+  }
+}
+
+// ---- AWS Event Stream binary framing ----
+
+interface EventStreamMsg {
+  headers: Record<string, string>;
+  payload: Uint8Array;
+}
+
+function concatBytes(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+function readEventStreamMessage(
+  buf: Uint8Array<ArrayBufferLike>,
+): { message: EventStreamMsg; bytesConsumed: number } | null {
+  if (buf.length < 16) return null; // prelude (12) + message CRC (4)
+
+  const view = new DataView(buf.buffer, buf.byteOffset);
+  const totalLength = view.getUint32(0);
+  const headersLength = view.getUint32(4);
+  // bytes 8–11: prelude CRC (skip verification for perf)
+
+  if (buf.length < totalLength) return null;
+
+  const headers: Record<string, string> = {};
+  let offset = 12;
+  const headersEnd = 12 + headersLength;
+
+  while (offset < headersEnd) {
+    const nameLen = buf[offset]!;
+    offset++;
+    const name = new TextDecoder().decode(buf.slice(offset, offset + nameLen));
+    offset += nameLen;
+
+    const valueType = buf[offset]!;
+    offset++;
+
+    if (valueType === 7) {
+      // string
+      const valueLen = new DataView(buf.buffer, buf.byteOffset + offset).getUint16(0);
+      offset += 2;
+      headers[name] = new TextDecoder().decode(buf.slice(offset, offset + valueLen));
+      offset += valueLen;
+    } else {
+      // Skip unknown header types — shouldn't occur in SageMaker responses
+      break;
+    }
+  }
+
+  const payloadLength = totalLength - headersLength - 16;
+  const payloadOffset = 12 + headersLength;
+  const payload = buf.slice(payloadOffset, payloadOffset + payloadLength);
+
+  return { message: { headers, payload }, bytesConsumed: totalLength };
+}

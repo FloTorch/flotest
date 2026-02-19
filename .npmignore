@@ -1,0 +1,8 @@
+src/
+*.ts
+!dist/**
+tsconfig.json
+tsup.config.ts
+bun.lock
+prd.md
+.github/

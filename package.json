@@ -1,0 +1,45 @@
+{
+  "name": "@flotorch/loadtest",
+  "version": "0.2.2",
+  "description": "LLM inference load testing and benchmarking tool",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flotorch/loadtest"
+  },
+  "bin": {
+    "flotorch-loadtest": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix --type-aware",
+    "format": "oxfmt",
+    "build": "tsup",
+    "dev": "tsx index.ts"
+  },
+  "dependencies": {
+    "@smithy/hash-node": "4.2.8",
+    "@smithy/protocol-http": "5.3.8",
+    "@smithy/signature-v4": "5.3.8",
+    "gpt-tokenizer": "3.4.0",
+    "ink": "6.8.0",
+    "react": "19.2.4",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.3.0",
+    "@types/react": "19.2.14",
+    "oxfmt": "0.33.0",
+    "oxlint": "1.48.0",
+    "oxlint-tsgolint": "0.14.1",
+    "tsup": "8.5.1",
+    "tsx": "^4.21.0"
+  },
+  "peerDependencies": {
+    "typescript": "5.9.3"
+  }
+}
