@@ -166,9 +166,9 @@ export class SageMakerBackend implements IBackend {
       messages.push({ role: "user", content: prompt });
       return {
         messages,
-        max_tokens: maxTokens,
         stream: streaming,
         ...params,
+        max_tokens: maxTokens,
       };
     }
 
@@ -178,8 +178,8 @@ export class SageMakerBackend implements IBackend {
     return {
       inputs: rawPrompt,
       parameters: {
-        max_new_tokens: maxTokens,
         ...params,
+        max_new_tokens: maxTokens,
       },
     };
   }

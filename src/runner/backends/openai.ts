@@ -54,14 +54,17 @@ export class OpenAIBackend implements IBackend {
     messages.push({ role: "user", content: prompt });
 
     const body: Record<string, unknown> = {
-      model,
       messages,
       stream: streaming,
       ...params,
+      model,
+      max_tokens: maxTokens,
     };
 
-    // OpenAI API uses max_completion_tokens instead of max_tokens
-    if (body.max_tokens && this.isOpenAIHost()) {
+    // OpenAI accepts max_completion_tokens for all models and requires it
+    // for reasoning models (o1, o3, o4-mini) which reject max_tokens.
+    // Non-OpenAI endpoints (vLLM, SageMaker LMI, Ollama) use max_tokens.
+    if (this.isOpenAIHost()) {
       body.max_completion_tokens = body.max_tokens;
       delete body.max_tokens;
     }
