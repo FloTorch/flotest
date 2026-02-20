@@ -39,6 +39,7 @@ export interface SummaryMetrics {
   totalRequests: number;
   successfulRequests: number;
   failedRequests: number;
+  emptyResponses: number;
   errorRate: number;
   rpm: number;
   overallTps: number;

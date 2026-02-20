@@ -43,7 +43,7 @@ export class FallbackDisplay {
 
     process.stderr.write(
       `  [${bar}] ${s.completed}/${totalStr}${pctStr}\n` +
-        `  ${formatDuration(elapsed)} | ${rps.toFixed(1)} req/s | ${tps.toFixed(0)} tok/s | ${s.errors} err\n`,
+        `  ${formatDuration(elapsed)} | ${rps.toFixed(1)} req/s | ${tps.toFixed(0)} tok/s | ${s.errors} err | ${s.emptyResponses} empty\n`,
     );
   }
 }

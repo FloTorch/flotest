@@ -7,6 +7,7 @@ interface StatsPanelProps {
   recentTtft: number[];
   recentE2eLatency: number[];
   errors: number;
+  emptyResponses: number;
   completed: number;
 }
 
@@ -35,6 +36,7 @@ export function StatsPanel({
   recentTtft,
   recentE2eLatency,
   errors,
+  emptyResponses,
   completed,
 }: StatsPanelProps) {
   const sortedTtft = [...recentTtft].sort((a, b) => a - b);
@@ -105,6 +107,11 @@ export function StatsPanel({
         </Box>
         <Text color={errors > 0 ? "red" : undefined} bold={errors > 0}>
           {errors} ({errRate}%)
+        </Text>
+        <Text>{"  "}</Text>
+        <Text dimColor>Empty </Text>
+        <Text color={emptyResponses > 0 ? "yellow" : undefined} bold={emptyResponses > 0}>
+          {emptyResponses} ({completed > 0 ? ((emptyResponses / completed) * 100).toFixed(1) : "0.0"}%)
         </Text>
       </Box>
     </Box>

@@ -58,6 +58,7 @@ export function App({ store }: AppProps) {
           recentTtft={snap.recentTtft}
           recentE2eLatency={snap.recentE2eLatency}
           errors={snap.errors}
+          emptyResponses={snap.emptyResponses}
           completed={snap.completed}
         />
       </Box>

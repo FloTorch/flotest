@@ -13,6 +13,7 @@ export interface StoreSnapshot {
   completed: number;
   totalTarget: number;
   errors: number;
+  emptyResponses: number;
   totalOutputTokens: number;
   totalInputTokens: number;
   startTime: number;
@@ -32,6 +33,7 @@ export class BenchmarkStore {
   completed = 0;
   totalTarget: number;
   errors = 0;
+  emptyResponses = 0;
   totalOutputTokens = 0;
   totalInputTokens = 0;
   startTime = 0;
@@ -71,9 +73,9 @@ export class BenchmarkStore {
       this.errors++;
       if (this.recentErrors.length >= 5) this.recentErrors.shift();
       this.recentErrors.push(metrics.error);
-    }
-
-    if (!metrics.error) {
+    } else if (metrics.ttftMs === -1) {
+      this.emptyResponses++;
+    } else {
       if (this.recentTtft.length >= ROLLING_CAP) this.recentTtft.shift();
       this.recentTtft.push(metrics.ttftMs);
 
@@ -100,6 +102,7 @@ export class BenchmarkStore {
       completed: this.completed,
       totalTarget: this.totalTarget,
       errors: this.errors,
+      emptyResponses: this.emptyResponses,
       totalOutputTokens: this.totalOutputTokens,
       totalInputTokens: this.totalInputTokens,
       startTime: this.startTime,

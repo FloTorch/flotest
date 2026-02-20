@@ -2,15 +2,17 @@ import type { RequestMetrics, SummaryMetrics, Phase } from "../types/metrics.ts"
 import { aggregate } from "./statistics.ts";
 
 export function computeSummary(requests: RequestMetrics[]): SummaryMetrics {
-  const successful = requests.filter((r) => !r.error);
   const failed = requests.filter((r) => !!r.error);
+  const successful = requests.filter((r) => !r.error);
+  const empty = successful.filter((r) => r.ttftMs === -1);
+  const completed = successful.filter((r) => r.ttftMs !== -1);
 
   const startTime = Math.min(...requests.map((r) => r.startTime));
   const endTime = Math.max(...requests.map((r) => r.endTime));
   const durationMs = endTime - startTime;
   const durationMin = durationMs / 60000;
 
-  const totalOutputTokens = successful.reduce((sum, r) => sum + r.outputTokens, 0);
+  const totalOutputTokens = completed.reduce((sum, r) => sum + r.outputTokens, 0);
 
   const errorCodeFrequency: Record<string, number> = {};
   for (const r of failed) {
@@ -33,28 +35,29 @@ export function computeSummary(requests: RequestMetrics[]): SummaryMetrics {
     }
   }
 
-  const ttfntValues = successful
+  const ttfntValues = completed
     .map((r) => r.ttfntMs)
     .filter((v): v is number => v !== undefined && v > 0);
 
-  const itlValues = successful.flatMap((r) => r.interTokenLatencies);
+  const itlValues = completed.flatMap((r) => r.interTokenLatencies);
 
   return {
     startTime,
     endTime,
     totalRequests: requests.length,
-    successfulRequests: successful.length,
+    successfulRequests: completed.length,
     failedRequests: failed.length,
+    emptyResponses: empty.length,
     errorRate: requests.length > 0 ? failed.length / requests.length : 0,
     rpm: durationMin > 0 ? requests.length / durationMin : 0,
     overallTps: durationMs > 0 ? totalOutputTokens / (durationMs / 1000) : 0,
-    ttft: aggregate(successful.map((r) => r.ttftMs)),
+    ttft: aggregate(completed.map((r) => r.ttftMs)),
     ttfnt: ttfntValues.length > 0 ? aggregate(ttfntValues) : undefined,
-    e2eLatency: aggregate(successful.map((r) => r.e2eLatencyMs)),
-    outputThroughput: aggregate(successful.map((r) => r.outputThroughputTps)),
+    e2eLatency: aggregate(completed.map((r) => r.e2eLatencyMs)),
+    outputThroughput: aggregate(completed.map((r) => r.outputThroughputTps)),
     interTokenLatency: aggregate(itlValues),
-    inputTokens: aggregate(successful.map((r) => r.inputTokens)),
-    outputTokens: aggregate(successful.map((r) => r.outputTokens)),
+    inputTokens: aggregate(completed.map((r) => r.inputTokens)),
+    outputTokens: aggregate(completed.map((r) => r.outputTokens)),
     errorCodeFrequency,
     cacheHitRate: requests.length > 0 ? cacheHits / requests.length : 0,
     phaseBreakdown,

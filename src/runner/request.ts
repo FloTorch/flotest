@@ -32,17 +32,19 @@ export async function executeRequest(
     const endTime = performance.now();
     const e2eLatencyMs = endTime - startTime;
 
+    const isEmpty = response.outputTokens === 0 && response.generatedText === "";
+
     return {
       requestId,
       startTime,
       endTime,
-      ttftMs: response.ttftMs,
+      ttftMs: isEmpty ? -1 : response.ttftMs,
       e2eLatencyMs,
       interTokenLatencies: response.interTokenLatencies,
       inputText: prompt.text,
       inputTokens: prompt.tokenCount,
       outputTokens: response.outputTokens,
-      outputThroughputTps: e2eLatencyMs > 0 ? response.outputTokens / (e2eLatencyMs / 1000) : 0,
+      outputThroughputTps: isEmpty ? 0 : (e2eLatencyMs > 0 ? response.outputTokens / (e2eLatencyMs / 1000) : 0),
       generatedText: response.generatedText,
       phase,
       cacheHit,
