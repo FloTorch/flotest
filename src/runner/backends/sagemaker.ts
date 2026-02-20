@@ -13,9 +13,35 @@ const EnvSchema = z.object({
   AWS_SESSION_TOKEN: z.string().optional(),
 });
 
+/**
+ * Controls how request bodies are built and responses are parsed for SageMaker endpoints.
+ *
+ * **OpenAI (recommended default)** — Sends the Chat Completions `messages` format.
+ * Modern LMI/vLLM containers auto-detect the `messages` field and apply the model's
+ * chat template server-side, returning an OpenAI-compatible response.
+ *
+ * **Sagemaker (legacy)** — Sends a raw text string via the `inputs` field.
+ * Use this only for legacy containers that do not support the `messages` format.
+ * The caller is responsible for prompt formatting; no chat template is applied.
+ *
+ * References:
+ * - HuggingFace TGI maintenance mode (Dec 2025): https://github.com/huggingface/text-generation-inference
+ * - LMI Chat Completions API schema (auto-detects `messages`):
+ *     https://docs.djl.ai/master/docs/serving/serving/docs/lmi/user_guides/chat_input_output_schema.html
+ *     "If the request contains the messages field, LMI will treat the request as a
+ *      chat completions style request, and respond back with the chat completions response style."
+ *     "On SageMaker, Chat Completions API schema is supported with the /invocations endpoint
+ *      without additional configurations."
+ * - LMI standard input/output schema (raw `inputs` string):
+ *     https://docs.djl.ai/master/docs/serving/serving/docs/lmi/user_guides/lmi_input_output_schema.html
+ * - AWS vLLM DLC on SageMaker:
+ *     https://docs.aws.amazon.com/deep-learning-containers/latest/devguide/dlc-vllm-sagemaker.html
+ * - AWS LMI container docs:
+ *     https://docs.aws.amazon.com/sagemaker/latest/dg/large-model-inference-container-docs.html
+ */
 export enum RequestFormat {
-  Sagemaker = "sagemaker",
   OpenAI = "openai",
+  Sagemaker = "sagemaker",
 }
 
 export interface SageMakerConfig {
@@ -54,7 +80,7 @@ export class SageMakerBackend implements IBackend {
 
   constructor(config: SageMakerConfig) {
     this.baseURL = config.baseURL ?? `https://runtime.sagemaker.${config.region}.amazonaws.com`;
-    this.requestFormat = config.requestFormat ?? RequestFormat.Sagemaker;
+    this.requestFormat = config.requestFormat ?? RequestFormat.OpenAI;
     this.signer = new SignatureV4({
       service: "sagemaker",
       region: config.region,
@@ -131,11 +157,13 @@ export class SageMakerBackend implements IBackend {
     params: Record<string, unknown> | undefined,
     streaming: boolean,
   ): Record<string, unknown> {
-    const messages: { role: string; content: string }[] = [];
-    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
-    messages.push({ role: "user", content: prompt });
-
     if (this.requestFormat === RequestFormat.OpenAI) {
+      // Chat Completions format: LMI/vLLM auto-detects the `messages` field,
+      // applies the model's chat template server-side, and returns an
+      // OpenAI-compatible response.
+      const messages: { role: string; content: string }[] = [];
+      if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+      messages.push({ role: "user", content: prompt });
       return {
         messages,
         max_tokens: maxTokens,
@@ -144,8 +172,11 @@ export class SageMakerBackend implements IBackend {
       };
     }
 
+    // Legacy raw text format: sends a plain string via `inputs`.
+    // No chat template is applied — the caller is responsible for formatting.
+    const rawPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
     return {
-      inputs: [messages],
+      inputs: rawPrompt,
       parameters: {
         max_new_tokens: maxTokens,
         ...params,
