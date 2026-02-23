@@ -130,6 +130,7 @@ export class SageMakerBackend implements IBackend {
 
     const signed = await this.signer.sign(httpRequest);
 
+    const requestStart = performance.now();
     const response = await fetch(url.toString(), {
       method: "POST",
       headers: signed.headers as Record<string, string>,
@@ -145,9 +146,9 @@ export class SageMakerBackend implements IBackend {
     }
 
     if (streaming) {
-      return this.parseEventStream(response);
+      return this.parseEventStream(response, requestStart);
     }
-    return this.parseResponse(response);
+    return this.parseResponse(response, requestStart);
   }
 
   private buildRequestBody(
@@ -186,7 +187,7 @@ export class SageMakerBackend implements IBackend {
 
   // ---- Streaming: eventstream binary parser ----
 
-  private async parseEventStream(response: Response): Promise<BackendResponse> {
+  private async parseEventStream(response: Response, requestStart: number): Promise<BackendResponse> {
     const body = response.body;
     if (!body) throw new Error("No response body");
 
@@ -194,7 +195,6 @@ export class SageMakerBackend implements IBackend {
     let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
     let generatedText = "";
     let ttftMs = 0;
-    const requestStart = performance.now();
     let lastChunkTime = requestStart;
     const interTokenLatencies: number[] = [];
     let firstToken = true;
@@ -225,7 +225,6 @@ export class SageMakerBackend implements IBackend {
           if (message.headers[":event-type"] !== "PayloadPart") continue;
 
           const payloadText = new TextDecoder().decode(message.payload);
-          const now = performance.now();
 
           if (this.requestFormat === RequestFormat.OpenAI) {
             sseBuffer += payloadText;
@@ -252,6 +251,7 @@ export class SageMakerBackend implements IBackend {
 
               const content = chunk.choices?.[0]?.delta?.content;
               if (content) {
+                const now = performance.now();
                 if (firstToken) {
                   ttftMs = now - requestStart;
                   firstToken = false;
@@ -278,6 +278,7 @@ export class SageMakerBackend implements IBackend {
 
               const tokenText = (chunk.token as { text?: string } | undefined)?.text;
               if (tokenText) {
+                const now = performance.now();
                 if (firstToken) {
                   ttftMs = now - requestStart;
                   firstToken = false;
@@ -311,8 +312,7 @@ export class SageMakerBackend implements IBackend {
 
   // ---- Non-streaming ----
 
-  private async parseResponse(response: Response): Promise<BackendResponse> {
-    const requestStart = performance.now();
+  private async parseResponse(response: Response, requestStart: number): Promise<BackendResponse> {
     const json = (await response.json()) as unknown;
     const ttftMs = performance.now() - requestStart;
 
