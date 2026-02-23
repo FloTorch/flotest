@@ -69,6 +69,7 @@ export class OpenAIBackend implements IBackend {
       delete body.max_tokens;
     }
 
+    const requestStart = performance.now();
     const response = await fetch(this.url, {
       method: "POST",
       headers: {
@@ -87,16 +88,16 @@ export class OpenAIBackend implements IBackend {
     }
 
     if (streaming) {
-      return this.parseStream(response);
+      return this.parseStream(response, requestStart);
     }
-    return this.parseResponse(response);
+    return this.parseResponse(response, requestStart);
   }
 
   private isOpenAIHost(): boolean {
     return this.url.includes("api.openai.com");
   }
 
-  private async parseStream(response: Response): Promise<BackendResponse> {
+  private async parseStream(response: Response, requestStart: number): Promise<BackendResponse> {
     const body = response.body;
     if (!body) throw new Error("No response body");
 
@@ -105,7 +106,6 @@ export class OpenAIBackend implements IBackend {
     let buffer = "";
     let generatedText = "";
     let ttftMs = 0;
-    const requestStart = performance.now();
     let lastChunkTime = requestStart;
     const interTokenLatencies: number[] = [];
     let firstToken = true;
@@ -162,8 +162,7 @@ export class OpenAIBackend implements IBackend {
     return { generatedText, outputTokens, ttftMs, interTokenLatencies };
   }
 
-  private async parseResponse(response: Response): Promise<BackendResponse> {
-    const requestStart = performance.now();
+  private async parseResponse(response: Response, requestStart: number): Promise<BackendResponse> {
     const json = (await response.json()) as ChatCompletionResponse;
     const ttftMs = performance.now() - requestStart;
     const generatedText = json.choices?.[0]?.message?.content ?? "";
