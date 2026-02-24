@@ -112,6 +112,7 @@ export class SageMakerBackend implements IBackend {
     const url = new URL(path, this.baseURL);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      host: url.hostname,
     };
     if (streaming) {
       headers["X-Amzn-SageMaker-InferenceComponent-Inference-Code-Accepts"] =
