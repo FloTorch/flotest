@@ -54,13 +54,26 @@ Writes `config.json` to the current directory. You can specify a custom path:
 flotorch-loadtest init my-test.json
 ```
 
-### 2. Set your API key
+### 2. Set credentials
+
+**OpenAI / OpenAI-compatible:**
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
 
-For SageMaker, configure AWS credentials via standard AWS environment variables or credential files.
+**AWS SageMaker:**
+
+The SageMaker backend reads standard AWS environment variables. At minimum, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Provide `AWS_SESSION_TOKEN` when using temporary credentials (e.g., `aws sts assume-role`).
+
+```bash
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="AKIA..."
+export AWS_SECRET_ACCESS_KEY="wJalr..."
+# export AWS_SESSION_TOKEN="FwoGZX..."  # only for temporary/session credentials
+```
+
+Alternatively, configure credentials via `~/.aws/credentials` and set `AWS_REGION` (or `AWS_DEFAULT_REGION`).
 
 ### 3. Run the load test
 
@@ -167,6 +180,19 @@ The config file is JSON with four sections:
 
 > At least one of `maxRequests` or `maxDuration` is required. If `stddev` is omitted, it defaults to 10% of the mean.
 
+### SageMaker `provider.config` options
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `requestFormat` | `"openai"` \| `"sagemaker"` | `"openai"` | Controls request body format. `"openai"` sends `messages` array (modern LMI/vLLM). `"sagemaker"` sends raw `inputs` string (legacy TGI). |
+
+When `adapter` is `"sagemaker"`:
+
+- `provider.model` is the **SageMaker endpoint name** (not a model ID).
+- `provider.baseURL` overrides the default SageMaker runtime URL (`https://runtime.sagemaker.<region>.amazonaws.com`). Useful for VPC endpoints or custom domains.
+- Streaming uses the `/endpoints/<model>/invocations-response-stream` path; non-streaming uses `/endpoints/<model>/invocations`.
+- Requests are signed with AWS Signature V4 using the configured credentials.
+
 ## Metrics Collected
 
 ### Per-request
@@ -228,6 +254,90 @@ The config file is JSON with four sections:
     "streaming": true,
     "rampUp": { "duration": 30 },
     "rampDown": { "duration": 15 }
+  }
+}
+```
+
+### Load test an AWS SageMaker endpoint (LMI / vLLM container)
+
+Modern SageMaker LMI and vLLM containers accept the Chat Completions `messages` format automatically — no extra configuration needed. Set `adapter` to `"sagemaker"` and use your **SageMaker endpoint name** as `model`.
+
+```json
+{
+  "provider": {
+    "adapter": "sagemaker",
+    "model": "my-llama3-endpoint",
+    "systemPrompt": "You are a helpful assistant."
+  },
+  "benchmark": {
+    "concurrency": 20,
+    "inputTokens": { "mean": 512 },
+    "outputTokens": { "mean": 256 },
+    "maxRequests": 200,
+    "streaming": true
+  }
+}
+```
+
+```bash
+# Set AWS credentials
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="AKIA..."
+export AWS_SECRET_ACCESS_KEY="..."
+# export AWS_SESSION_TOKEN="..."   # only needed for temporary credentials
+
+flotorch-loadtest run -c config.json
+```
+
+The tool calls `https://runtime.sagemaker.<region>.amazonaws.com/endpoints/<model>/invocations-response-stream` for streaming or `.../invocations` for non-streaming, signing each request with AWS Signature V4.
+
+### SageMaker with legacy request format (TGI / HuggingFace containers)
+
+Older containers that don't support the `messages` field expect a raw text string via the `inputs` field. Set `requestFormat` to `"sagemaker"` in `provider.config`:
+
+```json
+{
+  "provider": {
+    "adapter": "sagemaker",
+    "model": "my-tgi-endpoint",
+    "config": {
+      "requestFormat": "sagemaker"
+    }
+  },
+  "benchmark": {
+    "concurrency": 10,
+    "inputTokens": { "mean": 256 },
+    "outputTokens": { "mean": 128 },
+    "maxRequests": 100,
+    "streaming": false
+  }
+}
+```
+
+With the legacy format, the prompt is sent as `{ "inputs": "<prompt>", "parameters": { "max_new_tokens": N } }`. No chat template is applied — format your prompts accordingly.
+
+### SageMaker with custom endpoint URL and ramp-up
+
+If your SageMaker endpoint uses a custom domain or VPC endpoint, override `baseURL`:
+
+```json
+{
+  "provider": {
+    "adapter": "sagemaker",
+    "model": "my-vllm-endpoint",
+    "baseURL": "https://vpce-0123456789abcdef-ab12cd34.runtime.sagemaker.us-west-2.vpce.amazonaws.com"
+  },
+  "benchmark": {
+    "concurrency": 50,
+    "inputTokens": { "mean": 1024 },
+    "outputTokens": { "mean": 512 },
+    "maxRequests": 1000,
+    "streaming": true,
+    "rampUp": { "duration": 60 },
+    "rampDown": { "duration": 30 }
+  },
+  "reporter": {
+    "adapters": ["json", "csv"]
   }
 }
 ```
