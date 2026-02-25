@@ -6,12 +6,18 @@ import type { IBackend, BackendResponse } from "../backend.ts";
 import { countTokens } from "../../generator/tokenizer.ts";
 import { validateEnv } from "../../schemas/config.zod.ts";
 
-const EnvSchema = z.object({
-  AWS_REGION: z.string().default("us-east-1"),
-  AWS_ACCESS_KEY_ID: z.string().min(1, "AWS_ACCESS_KEY_ID is required"),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1, "AWS_SECRET_ACCESS_KEY is required"),
-  AWS_SESSION_TOKEN: z.string().optional(),
-});
+const EnvSchema = z
+  .object({
+    AWS_REGION: z.string().optional(),
+    AWS_DEFAULT_REGION: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().min(1, "AWS_ACCESS_KEY_ID is required"),
+    AWS_SECRET_ACCESS_KEY: z.string().min(1, "AWS_SECRET_ACCESS_KEY is required"),
+    AWS_SESSION_TOKEN: z.string().optional(),
+  })
+  .transform((env) => ({
+    ...env,
+    AWS_REGION: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? "us-east-1",
+  }));
 
 /**
  * Controls how request bodies are built and responses are parsed for SageMaker endpoints.
@@ -182,13 +188,17 @@ export class SageMakerBackend implements IBackend {
       parameters: {
         ...params,
         max_new_tokens: maxTokens,
+        ...(streaming ? { stream: true } : {}),
       },
     };
   }
 
   // ---- Streaming: eventstream binary parser ----
 
-  private async parseEventStream(response: Response, requestStart: number): Promise<BackendResponse> {
+  private async parseEventStream(
+    response: Response,
+    requestStart: number,
+  ): Promise<BackendResponse> {
     const body = response.body;
     if (!body) throw new Error("No response body");
 
@@ -300,7 +310,41 @@ export class SageMakerBackend implements IBackend {
           }
         }
       }
+
+      // Flush any remaining SSE data not terminated by a newline
+      if (this.requestFormat === RequestFormat.OpenAI && sseBuffer.trim()) {
+        const trimmed = sseBuffer.trim();
+        if (trimmed.startsWith("data: ")) {
+          const data = trimmed.slice(6);
+          if (data !== "[DONE]") {
+            try {
+              const chunk = JSON.parse(data) as {
+                choices?: { delta?: { content?: string } }[];
+                usage?: { completion_tokens?: number };
+              };
+              const content = chunk.choices?.[0]?.delta?.content;
+              if (content) {
+                const now = performance.now();
+                if (firstToken) {
+                  ttftMs = now - requestStart;
+                  firstToken = false;
+                } else {
+                  interTokenLatencies.push(now - lastChunkTime);
+                }
+                lastChunkTime = now;
+                generatedText += content;
+              }
+              if (chunk.usage?.completion_tokens) {
+                outputTokens = chunk.usage.completion_tokens;
+              }
+            } catch {
+              // ignore malformed final chunk
+            }
+          }
+        }
+      }
     } finally {
+      await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
 
@@ -389,13 +433,38 @@ function readEventStreamMessage(
     offset++;
 
     if (valueType === 7) {
-      // string
+      // type 7: string (2-byte length prefix + value)
       const valueLen = new DataView(buf.buffer, buf.byteOffset + offset).getUint16(0);
       offset += 2;
       headers[name] = new TextDecoder().decode(buf.slice(offset, offset + valueLen));
       offset += valueLen;
+    } else if (valueType === 0) {
+      // type 0: bool (1 byte)
+      offset += 1;
+    } else if (valueType === 1) {
+      // type 1: byte (1 byte)
+      offset += 1;
+    } else if (valueType === 2) {
+      // type 2: short (2 bytes)
+      offset += 2;
+    } else if (valueType === 3) {
+      // type 3: int (4 bytes)
+      offset += 4;
+    } else if (valueType === 4) {
+      // type 4: long (8 bytes)
+      offset += 8;
+    } else if (valueType === 5) {
+      // type 5: timestamp (8 bytes)
+      offset += 8;
+    } else if (valueType === 6) {
+      // type 6: bytes (2-byte length prefix + value)
+      const valueLen = new DataView(buf.buffer, buf.byteOffset + offset).getUint16(0);
+      offset += 2 + valueLen;
+    } else if (valueType === 8) {
+      // type 8: uuid (16 bytes)
+      offset += 16;
     } else {
-      // Skip unknown header types — shouldn't occur in SageMaker responses
+      // Truly unknown type — cannot determine size, stop parsing headers
       break;
     }
   }

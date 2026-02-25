@@ -29,9 +29,14 @@ export function createBackend(config: Config): IBackend {
     case "openai":
       return OpenAIBackend.create(baseURL);
     case "sagemaker": {
-      const requestFormat =
-        (config.provider.config?.["requestFormat"] as RequestFormat | undefined) ??
-        RequestFormat.OpenAI;
+      const rawFormat = config.provider.config?.["requestFormat"] as string | undefined;
+      const validFormats = Object.values(RequestFormat) as string[];
+      if (rawFormat !== undefined && !validFormats.includes(rawFormat)) {
+        throw new Error(
+          `Invalid requestFormat "${rawFormat}". Must be one of: ${validFormats.join(", ")}`,
+        );
+      }
+      const requestFormat = (rawFormat as RequestFormat | undefined) ?? RequestFormat.OpenAI;
       return SageMakerBackend.create(baseURL, requestFormat);
     }
     default:
