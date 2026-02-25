@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.2.7](https://github.com/flotorch/loadtest/compare/v0.2.6...v0.2.7) (2026-02-25)
+
+
+### Bug Fixes
+
+* fix sagemaker stream processing ([7759b93](https://github.com/flotorch/loadtest/commit/7759b93c30e9880cabf4a545734930de113e8090))
+* sagemaker headers ([992a7fa](https://github.com/flotorch/loadtest/commit/992a7fad762b260a02ffedaa706f49c8d562add2))
+
 ## [0.2.6](https://github.com/flotorch/loadtest/compare/v0.2.5...v0.2.6) (2026-02-24)
 
 ## 0.2.5 (2026-02-24)
