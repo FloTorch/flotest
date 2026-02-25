@@ -244,23 +244,37 @@ export class SageMakerBackend implements IBackend {
 
             for (const line of lines) {
               const trimmed = line.trim();
-              if (!trimmed.startsWith("data: ")) continue;
-              const data = trimmed.slice(6);
-              if (data === "[DONE]") continue;
+              if (!trimmed) continue;
+
+              // SSE format: lines prefixed with "data: "
+              let jsonStr: string;
+              if (trimmed.startsWith("data: ")) {
+                const data = trimmed.slice(6);
+                if (data === "[DONE]") continue;
+                jsonStr = data;
+              } else {
+                // Some containers send raw JSON without SSE framing
+                jsonStr = trimmed;
+              }
 
               let chunk: {
                 choices?: {
                   delta?: { content?: string };
                 }[];
                 usage?: { completion_tokens?: number };
+                token?: { text?: string };
+                generated_text?: string;
+                details?: { generated_tokens?: number };
               };
               try {
-                chunk = JSON.parse(data);
+                chunk = JSON.parse(jsonStr);
               } catch {
                 continue;
               }
 
-              const content = chunk.choices?.[0]?.delta?.content;
+              // Try OpenAI delta format first, then legacy token.text
+              const content =
+                chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
               if (content) {
                 const now = performance.now();
                 if (firstToken) {
@@ -271,10 +285,18 @@ export class SageMakerBackend implements IBackend {
                 }
                 lastChunkTime = now;
                 generatedText += content;
+              } else if (
+                typeof chunk.generated_text === "string" &&
+                !generatedText
+              ) {
+                generatedText = chunk.generated_text;
               }
 
               if (chunk.usage?.completion_tokens) {
                 outputTokens = chunk.usage.completion_tokens;
+              }
+              if (chunk.details?.generated_tokens) {
+                outputTokens = chunk.details.generated_tokens;
               }
             }
           } else {
@@ -314,32 +336,42 @@ export class SageMakerBackend implements IBackend {
       // Flush any remaining SSE data not terminated by a newline
       if (this.requestFormat === RequestFormat.OpenAI && sseBuffer.trim()) {
         const trimmed = sseBuffer.trim();
+        let jsonStr: string | null = null;
         if (trimmed.startsWith("data: ")) {
           const data = trimmed.slice(6);
-          if (data !== "[DONE]") {
-            try {
-              const chunk = JSON.parse(data) as {
-                choices?: { delta?: { content?: string } }[];
-                usage?: { completion_tokens?: number };
-              };
-              const content = chunk.choices?.[0]?.delta?.content;
-              if (content) {
-                const now = performance.now();
-                if (firstToken) {
-                  ttftMs = now - requestStart;
-                  firstToken = false;
-                } else {
-                  interTokenLatencies.push(now - lastChunkTime);
-                }
-                lastChunkTime = now;
-                generatedText += content;
+          if (data !== "[DONE]") jsonStr = data;
+        } else {
+          jsonStr = trimmed;
+        }
+        if (jsonStr) {
+          try {
+            const chunk = JSON.parse(jsonStr) as {
+              choices?: { delta?: { content?: string } }[];
+              usage?: { completion_tokens?: number };
+              token?: { text?: string };
+              details?: { generated_tokens?: number };
+            };
+            const content =
+              chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
+            if (content) {
+              const now = performance.now();
+              if (firstToken) {
+                ttftMs = now - requestStart;
+                firstToken = false;
+              } else {
+                interTokenLatencies.push(now - lastChunkTime);
               }
-              if (chunk.usage?.completion_tokens) {
-                outputTokens = chunk.usage.completion_tokens;
-              }
-            } catch {
-              // ignore malformed final chunk
+              lastChunkTime = now;
+              generatedText += content;
             }
+            if (chunk.usage?.completion_tokens) {
+              outputTokens = chunk.usage.completion_tokens;
+            }
+            if (chunk.details?.generated_tokens) {
+              outputTokens = chunk.details.generated_tokens;
+            }
+          } catch {
+            // ignore malformed final chunk
           }
         }
       }
@@ -358,20 +390,34 @@ export class SageMakerBackend implements IBackend {
   // ---- Non-streaming ----
 
   private async parseResponse(response: Response, requestStart: number): Promise<BackendResponse> {
-    const json = (await response.json()) as unknown;
+    const rawText = await response.text();
     const ttftMs = performance.now() - requestStart;
+
+    let json: unknown;
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      // Response is not JSON — treat the raw text as the generated output
+      const generatedText = rawText;
+      const outputTokens = countTokens(generatedText);
+      return { generatedText, outputTokens, ttftMs, interTokenLatencies: [] };
+    }
 
     let generatedText = "";
     let outputTokens = 0;
 
     if (this.requestFormat === RequestFormat.OpenAI) {
       const data = json as {
-        choices?: { message?: { content?: string } }[];
+        choices?: { message?: { content?: string }; text?: string }[];
         usage?: { completion_tokens?: number };
       };
-      generatedText = data.choices?.[0]?.message?.content ?? "";
+      generatedText = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? "";
       outputTokens = data.usage?.completion_tokens ?? 0;
-    } else {
+    }
+
+    // Fallback: if OpenAI format yielded nothing (or legacy format selected),
+    // try the legacy generated_text format that many SageMaker containers use.
+    if (!generatedText) {
       if (Array.isArray(json)) {
         generatedText = (json[0] as { generated_text?: string })?.generated_text ?? "";
       } else {

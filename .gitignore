@@ -1,5 +1,4 @@
-# dependencies (bun install)
-node_modules
+# dependencies (bun install) node_modules
 
 # output
 out
@@ -37,3 +36,4 @@ llmperf
 .claude
 MANIFESTO.md
 COMPARISON_REPORT.md
+config.json
