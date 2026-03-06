@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const { version } = JSON.parse(readFileSync("./package.json", "utf-8"));
 
 export default defineConfig({
-  entry: ["index.ts"],
+  entry: ["index.ts", "src/generator/prompt-worker.ts"],
   format: ["esm"],
   target: "node18",
   bundle: true,
