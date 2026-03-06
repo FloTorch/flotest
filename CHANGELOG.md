@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.1](https://github.com/flotorch/loadtest/compare/v0.3.0...v0.3.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* flatten worker output path in tsup config ([2797dc4](https://github.com/flotorch/loadtest/commit/2797dc4702ac8fa4c13b440f08bee74afa999644))
+
 ## [0.3.0](https://github.com/flotorch/loadtest/compare/v0.2.8...v0.3.0) (2026-03-06)
 
 
