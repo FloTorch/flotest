@@ -13,6 +13,7 @@ import type { PromptRecord } from "./src/types/prompt.ts";
 import type { SummaryMetrics, MetricAggregate } from "./src/types/metrics.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Config } from "./src/types/config.ts";
 
 async function main() {
   const cliArgs = parseCliArgs(process.argv);
@@ -59,12 +60,13 @@ function printBox(title: string, lines: string[]): void {
 }
 
 function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, "");
+  const ansiEscape = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+  return s.replace(ansiEscape, "");
 }
 
 // ── Banner ───────────────────────────────────────────────────────────
 
-function printBanner(config: import("./src/types/config.ts").Config, outputDir: string): void {
+function printBanner(config: Config, outputDir: string): void {
   const inner = BOX_W - 2;
   const title = "FLOTorch Load Tester";
   const titlePad = Math.floor((inner - title.length) / 2);
@@ -88,7 +90,7 @@ function printBanner(config: import("./src/types/config.ts").Config, outputDir: 
 
   const labelW = 14;
   for (const [label, value] of rows) {
-    const stripped = stripAnsi(label);
+    const stripped = stripAnsi(label ?? "");
     const pad = " ".repeat(Math.max(0, labelW - stripped.length));
     console.log(`   ${label}${pad}${value}`);
   }
@@ -181,10 +183,7 @@ function printSummary(summary: SummaryMetrics): void {
 
 // ── Commands ─────────────────────────────────────────────────────────
 
-async function runFullPipeline(
-  config: import("./src/types/config.ts").Config,
-  outputDir: string,
-): Promise<void> {
+async function runFullPipeline(config: Config, outputDir: string): Promise<void> {
   printBanner(config, outputDir);
 
   // Stage 1: Generate prompts
@@ -246,10 +245,7 @@ async function runFullPipeline(
   console.log(`\n  ${dim("Results saved to:")} ${cyan(outputDir)}\n`);
 }
 
-async function runGenerate(
-  config: import("./src/types/config.ts").Config,
-  outputDir: string,
-): Promise<void> {
+async function runGenerate(config: Config, outputDir: string): Promise<void> {
   printBanner(config, outputDir);
   stageRun("Generating prompts...");
   const prompts = await generatePrompts(config);
@@ -261,10 +257,7 @@ async function runGenerate(
   stageOk("Generating prompts", `${prompts.length} → ${cyan(outPath)}`);
 }
 
-async function runBench(
-  config: import("./src/types/config.ts").Config,
-  outputDir: string,
-): Promise<void> {
+async function runBench(config: Config, outputDir: string): Promise<void> {
   const inputFile = config.benchmark.inputFile;
   if (!inputFile) {
     throw new Error("bench command requires benchmark.inputFile (path to prompts.jsonl)");
@@ -275,7 +268,7 @@ async function runBench(
   const { FileGenerator } = await import("./src/generator/file.ts");
   const gen = new FileGenerator(inputFile);
   const count = config.benchmark.maxRequests ?? 100;
-  const prompts = gen.generate(count);
+  const prompts = await gen.generate(count);
   process.stdout.write("\x1b[1A\x1b[2K");
   stageOk("Loading prompts", `${prompts.length} prompts`);
 
@@ -308,7 +301,7 @@ async function runBench(
   stageOk("Running benchmark", `${results.length} requests → ${cyan(outputDir)}`);
 }
 
-async function runReport(config: import("./src/types/config.ts").Config): Promise<void> {
+async function runReport(config: Config): Promise<void> {
   const inputDir = config.benchmark.inputFile;
   if (!inputDir) {
     throw new Error(
@@ -335,9 +328,7 @@ async function runReport(config: import("./src/types/config.ts").Config): Promis
   printSummary(summary);
 }
 
-async function generatePrompts(
-  config: import("./src/types/config.ts").Config,
-): Promise<PromptRecord[]> {
+async function generatePrompts(config: Config): Promise<PromptRecord[]> {
   const generator = createGenerator(config);
   const count = config.benchmark.maxRequests ?? 100;
   return generator.generate(count);

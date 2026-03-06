@@ -21,7 +21,12 @@ describe("SyntheticGenerator performance", () => {
 
     console.log(`\n  1000 x 50k-token prompts: ${(elapsed / 1000).toFixed(2)}s`);
     console.log(`  Avg per prompt: ${(elapsed / 1000).toFixed(1)}ms`);
-    console.log(`  Sample token counts: ${prompts.slice(0, 5).map((p) => p.tokenCount).join(", ")}`);
+    console.log(
+      `  Sample token counts: ${prompts
+        .slice(0, 5)
+        .map((p) => p.tokenCount)
+        .join(", ")}`,
+    );
 
     expect(prompts).toHaveLength(1000);
     for (const p of prompts.slice(0, 10)) {
