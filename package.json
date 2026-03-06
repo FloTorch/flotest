@@ -1,6 +1,6 @@
 {
   "name": "@flotorch/loadtest",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "LLM inference load testing and benchmarking tool",
   "license": "MIT",
   "repository": {

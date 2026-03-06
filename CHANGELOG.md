@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.0](https://github.com/flotorch/loadtest/compare/v0.2.8...v0.3.0) (2026-03-06)
+
+
+### Features
+
+* add prompt generation worker for parallel execution ([e78de6b](https://github.com/flotorch/loadtest/commit/e78de6b992febdf1c68b93dbf8a4f8df473f7991))
+* parallelize prompt generation across worker threads ([3019264](https://github.com/flotorch/loadtest/commit/30192649dbbafbf9ecfba64008a10d0bc1ee2955)), closes [#5](https://github.com/flotorch/loadtest/issues/5)
+
 ## [0.2.8](https://github.com/flotorch/loadtest/compare/v0.2.7...v0.2.8) (2026-02-25)
 
 ## [0.2.7](https://github.com/flotorch/loadtest/compare/v0.2.6...v0.2.7) (2026-02-25)
