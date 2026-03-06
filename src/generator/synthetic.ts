@@ -49,7 +49,7 @@ export class SyntheticGenerator implements IGenerator {
     // For small counts, run in-process (worker overhead not worth it)
     if (count <= 10) {
       return batches.map(({ targetInput, targetOutput }) =>
-        this.generateOne(targetInput, targetOutput)
+        this.generateOne(targetInput, targetOutput),
       );
     }
 
@@ -76,7 +76,7 @@ export class SyntheticGenerator implements IGenerator {
           });
           worker.on("message", resolve);
           worker.on("error", reject);
-        })
+        }),
     );
 
     const results = await Promise.all(workerPromises);

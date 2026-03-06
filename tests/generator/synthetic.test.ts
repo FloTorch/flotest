@@ -3,13 +3,15 @@ import { SyntheticGenerator } from "../../src/generator/synthetic.ts";
 import { countTokens } from "../../src/generator/tokenizer.ts";
 import type { Config } from "../../src/types/config.ts";
 
-function makeConfig(overrides: Partial<{
-  inputMean: number;
-  inputStddev: number;
-  outputMean: number;
-  outputStddev: number;
-  maxRequests: number;
-}> = {}): Config {
+function makeConfig(
+  overrides: Partial<{
+    inputMean: number;
+    inputStddev: number;
+    outputMean: number;
+    outputStddev: number;
+    maxRequests: number;
+  }> = {},
+): Config {
   return {
     generator: { enabled: true },
     benchmark: {

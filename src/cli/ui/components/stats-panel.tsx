@@ -111,7 +111,8 @@ export function StatsPanel({
         <Text>{"  "}</Text>
         <Text dimColor>Empty </Text>
         <Text color={emptyResponses > 0 ? "yellow" : undefined} bold={emptyResponses > 0}>
-          {emptyResponses} ({completed > 0 ? ((emptyResponses / completed) * 100).toFixed(1) : "0.0"}%)
+          {emptyResponses} (
+          {completed > 0 ? ((emptyResponses / completed) * 100).toFixed(1) : "0.0"}%)
         </Text>
       </Box>
     </Box>

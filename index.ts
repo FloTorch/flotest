@@ -64,16 +64,15 @@ function stripAnsi(s: string): string {
 
 // ── Banner ───────────────────────────────────────────────────────────
 
-function printBanner(
-  config: import("./src/types/config.ts").Config,
-  outputDir: string,
-): void {
+function printBanner(config: import("./src/types/config.ts").Config, outputDir: string): void {
   const inner = BOX_W - 2;
   const title = "FLOTorch Load Tester";
   const titlePad = Math.floor((inner - title.length) / 2);
   console.log();
   console.log(`  ${dim("╭")}${dim("─".repeat(inner))}${dim("╮")}`);
-  console.log(`  ${dim("│")}${" ".repeat(titlePad)}${bold(title)}${" ".repeat(inner - titlePad - title.length)}${dim("│")}`);
+  console.log(
+    `  ${dim("│")}${" ".repeat(titlePad)}${bold(title)}${" ".repeat(inner - titlePad - title.length)}${dim("│")}`,
+  );
   console.log(`  ${dim("╰")}${dim("─".repeat(inner))}${dim("╯")}`);
 
   const maxReqs = config.benchmark.maxRequests;
@@ -336,7 +335,9 @@ async function runReport(config: import("./src/types/config.ts").Config): Promis
   printSummary(summary);
 }
 
-async function generatePrompts(config: import("./src/types/config.ts").Config): Promise<PromptRecord[]> {
+async function generatePrompts(
+  config: import("./src/types/config.ts").Config,
+): Promise<PromptRecord[]> {
   const generator = createGenerator(config);
   const count = config.benchmark.maxRequests ?? 100;
   return generator.generate(count);
