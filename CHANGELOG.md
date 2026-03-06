@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.2](https://github.com/flotorch/loadtest/compare/v0.3.1...v0.3.2) (2026-03-06)
+
+
+### Bug Fixes
+
+* stream prompts.jsonl writes to avoid max string length error ([b0ff415](https://github.com/flotorch/loadtest/commit/b0ff41527c68002ca4c8719aa0e5de2a0de2c695))
+
 ## [0.3.1](https://github.com/flotorch/loadtest/compare/v0.3.0...v0.3.1) (2026-03-06)
 
 
