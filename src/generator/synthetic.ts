@@ -9,6 +9,7 @@ import defaultCorpus from "./corpus/default.ts";
 export class SyntheticGenerator implements IGenerator {
   private lines: string[];
   private config: Config;
+  private lineTokenCache = new Map<string, number>();
 
   constructor(config: Config) {
     this.config = config;
@@ -19,6 +20,15 @@ export class SyntheticGenerator implements IGenerator {
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
+  }
+
+  private lineTokenCount(line: string): number {
+    let count = this.lineTokenCache.get(line);
+    if (count === undefined) {
+      count = countTokens(line);
+      this.lineTokenCache.set(line, count);
+    }
+    return count;
   }
 
   generate(count: number): PromptRecord[] {
@@ -38,30 +48,30 @@ export class SyntheticGenerator implements IGenerator {
 
   generateOne(targetInputTokens: number, targetOutputTokens: number): PromptRecord {
     const shuffled = [...this.lines].sort(() => Math.random() - 0.5);
-    let text = "";
-    let tokens = 0;
+    const parts: string[] = [];
+    let estimatedTokens = 0;
     let lineIdx = 0;
 
-    while (tokens < targetInputTokens && lineIdx < shuffled.length) {
-      const candidate = text ? `${text}\n${shuffled[lineIdx]!}` : shuffled[lineIdx]!;
-      const candidateTokens = countTokens(candidate);
-      if (candidateTokens > targetInputTokens && text.length > 0) break;
-      text = candidate;
-      tokens = candidateTokens;
+    while (estimatedTokens < targetInputTokens && lineIdx < shuffled.length) {
+      const line = shuffled[lineIdx]!;
+      const lineTokens = this.lineTokenCount(line);
+      if (estimatedTokens + lineTokens > targetInputTokens && parts.length > 0) break;
+      parts.push(line);
+      estimatedTokens += lineTokens;
       lineIdx++;
     }
 
     // If we haven't reached the target, repeat lines
-    while (tokens < targetInputTokens) {
+    while (estimatedTokens < targetInputTokens) {
       const line = shuffled[lineIdx % shuffled.length]!;
-      const candidate = `${text}\n${line}`;
-      const candidateTokens = countTokens(candidate);
-      if (candidateTokens > targetInputTokens * 1.1) break;
-      text = candidate;
-      tokens = candidateTokens;
+      const lineTokens = this.lineTokenCount(line);
+      if (estimatedTokens + lineTokens > targetInputTokens * 1.1) break;
+      parts.push(line);
+      estimatedTokens += lineTokens;
       lineIdx++;
     }
 
+    const text = parts.join("\n");
     const suffix = this.config.generator.prompt ?? "";
     const header = `Randomly stream lines from the following text with ${targetOutputTokens} output tokens. Don't generate eos tokens:\n\n`;
     const fullText = header + text + (suffix ? `\n${suffix}` : "");

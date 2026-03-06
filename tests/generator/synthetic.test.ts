@@ -56,4 +56,13 @@ describe("SyntheticGenerator", () => {
       expect(p.tokenCount).toBeGreaterThan(1000);
     }
   });
+
+  it("generates a 5000-token prompt in under 2 seconds", () => {
+    const gen = new SyntheticGenerator(makeConfig({ inputMean: 5000, inputStddev: 100 }));
+    const start = performance.now();
+    const prompts = gen.generate(1);
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(2000);
+    expect(prompts[0].tokenCount).toBeGreaterThan(3000);
+  });
 });
