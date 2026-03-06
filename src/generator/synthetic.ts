@@ -4,6 +4,10 @@ import type { Config } from "../types/config.ts";
 import { countTokens } from "./tokenizer.ts";
 import { clampedGaussian } from "../utils/random.ts";
 import { readFileSync } from "node:fs";
+import { Worker } from "node:worker_threads";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { availableParallelism } from "node:os";
 import defaultCorpus from "./corpus/default.ts";
 
 export class SyntheticGenerator implements IGenerator {
@@ -31,19 +35,52 @@ export class SyntheticGenerator implements IGenerator {
     return count;
   }
 
-  generate(count: number): PromptRecord[] {
-    const records: PromptRecord[] = [];
+  async generate(count: number): Promise<PromptRecord[]> {
     const inputMean = this.config.benchmark.inputTokens.mean;
     const inputStddev = this.config.benchmark.inputTokens.stddev ?? inputMean * 0.1;
     const outputMean = this.config.benchmark.outputTokens.mean;
     const outputStddev = this.config.benchmark.outputTokens.stddev ?? outputMean * 0.1;
 
-    for (let i = 0; i < count; i++) {
-      const targetInput = clampedGaussian(inputMean, inputStddev, 1, inputMean * 3);
-      const targetOutput = clampedGaussian(outputMean, outputStddev, 1, outputMean * 3);
-      records.push(this.generateOne(targetInput, targetOutput));
+    const batches = Array.from({ length: count }, () => ({
+      targetInput: clampedGaussian(inputMean, inputStddev, 1, inputMean * 3),
+      targetOutput: clampedGaussian(outputMean, outputStddev, 1, outputMean * 3),
+    }));
+
+    // For small counts, run in-process (worker overhead not worth it)
+    if (count <= 10) {
+      return batches.map(({ targetInput, targetOutput }) =>
+        this.generateOne(targetInput, targetOutput)
+      );
     }
-    return records;
+
+    // Split batches across workers
+    const numWorkers = Math.min(availableParallelism(), count);
+    const chunkSize = Math.ceil(count / numWorkers);
+    const chunks: Array<Array<{ targetInput: number; targetOutput: number }>> = [];
+    for (let i = 0; i < count; i += chunkSize) {
+      chunks.push(batches.slice(i, i + chunkSize));
+    }
+
+    const currentFile = fileURLToPath(import.meta.url);
+    const currentDir = dirname(currentFile);
+    const ext = currentFile.endsWith(".ts") ? ".ts" : ".js";
+    const workerPath = join(currentDir, `prompt-worker${ext}`);
+
+    const prompt = this.config.generator.prompt ?? "";
+
+    const workerPromises = chunks.map(
+      (chunk) =>
+        new Promise<PromptRecord[]>((resolve, reject) => {
+          const worker = new Worker(workerPath, {
+            workerData: { lines: this.lines, prompt, batches: chunk },
+          });
+          worker.on("message", resolve);
+          worker.on("error", reject);
+        })
+    );
+
+    const results = await Promise.all(workerPromises);
+    return results.flat();
   }
 
   generateOne(targetInputTokens: number, targetOutputTokens: number): PromptRecord {

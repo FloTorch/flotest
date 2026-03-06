@@ -190,7 +190,7 @@ async function runFullPipeline(
 
   // Stage 1: Generate prompts
   stageRun("Generating prompts...");
-  const prompts = generatePrompts(config);
+  const prompts = await generatePrompts(config);
   // Overwrite the "running" line with the "done" line
   process.stdout.write("\x1b[1A\x1b[2K");
   stageOk("Generating prompts", `${prompts.length} prompts`);
@@ -253,7 +253,7 @@ async function runGenerate(
 ): Promise<void> {
   printBanner(config, outputDir);
   stageRun("Generating prompts...");
-  const prompts = generatePrompts(config);
+  const prompts = await generatePrompts(config);
 
   mkdirSync(outputDir, { recursive: true });
   const outPath = join(outputDir, "prompts.jsonl");
@@ -336,7 +336,7 @@ async function runReport(config: import("./src/types/config.ts").Config): Promis
   printSummary(summary);
 }
 
-function generatePrompts(config: import("./src/types/config.ts").Config): PromptRecord[] {
+async function generatePrompts(config: import("./src/types/config.ts").Config): Promise<PromptRecord[]> {
   const generator = createGenerator(config);
   const count = config.benchmark.maxRequests ?? 100;
   return generator.generate(count);
