@@ -21,7 +21,8 @@
     "build": "tsup",
     "dev": "tsx index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "rm -rf dist && tsup"
   },
   "dependencies": {
     "@smithy/hash-node": "4.2.11",
