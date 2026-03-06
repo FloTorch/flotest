@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.3](https://github.com/flotorch/loadtest/compare/v0.3.2...v0.3.3) (2026-03-06)
+
+
+### Bug Fixes
+
+* remove extra newline in prompt header ([2fd409a](https://github.com/flotorch/loadtest/commit/2fd409aa8c822b000a62e1fcf4b3470b8d121700))
+
 ## [0.3.2](https://github.com/flotorch/loadtest/compare/v0.3.1...v0.3.2) (2026-03-06)
 
 
