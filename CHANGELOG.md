@@ -4,32 +4,28 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## [0.3.3](https://github.com/flotorch/loadtest/compare/v0.3.2...v0.3.3) (2026-03-06)
 
-
 ### Bug Fixes
 
-* remove extra newline in prompt header ([2fd409a](https://github.com/flotorch/loadtest/commit/2fd409aa8c822b000a62e1fcf4b3470b8d121700))
+- remove extra newline in prompt header ([2fd409a](https://github.com/flotorch/loadtest/commit/2fd409aa8c822b000a62e1fcf4b3470b8d121700))
 
 ## [0.3.2](https://github.com/flotorch/loadtest/compare/v0.3.1...v0.3.2) (2026-03-06)
 
-
 ### Bug Fixes
 
-* stream prompts.jsonl writes to avoid max string length error ([b0ff415](https://github.com/flotorch/loadtest/commit/b0ff41527c68002ca4c8719aa0e5de2a0de2c695))
+- stream prompts.jsonl writes to avoid max string length error ([b0ff415](https://github.com/flotorch/loadtest/commit/b0ff41527c68002ca4c8719aa0e5de2a0de2c695))
 
 ## [0.3.1](https://github.com/flotorch/loadtest/compare/v0.3.0...v0.3.1) (2026-03-06)
 
-
 ### Bug Fixes
 
-* flatten worker output path in tsup config ([2797dc4](https://github.com/flotorch/loadtest/commit/2797dc4702ac8fa4c13b440f08bee74afa999644))
+- flatten worker output path in tsup config ([2797dc4](https://github.com/flotorch/loadtest/commit/2797dc4702ac8fa4c13b440f08bee74afa999644))
 
 ## [0.3.0](https://github.com/flotorch/loadtest/compare/v0.2.8...v0.3.0) (2026-03-06)
 
-
 ### Features
 
-* add prompt generation worker for parallel execution ([e78de6b](https://github.com/flotorch/loadtest/commit/e78de6b992febdf1c68b93dbf8a4f8df473f7991))
-* parallelize prompt generation across worker threads ([3019264](https://github.com/flotorch/loadtest/commit/30192649dbbafbf9ecfba64008a10d0bc1ee2955)), closes [#5](https://github.com/flotorch/loadtest/issues/5)
+- add prompt generation worker for parallel execution ([e78de6b](https://github.com/flotorch/loadtest/commit/e78de6b992febdf1c68b93dbf8a4f8df473f7991))
+- parallelize prompt generation across worker threads ([3019264](https://github.com/flotorch/loadtest/commit/30192649dbbafbf9ecfba64008a10d0bc1ee2955)), closes [#5](https://github.com/flotorch/loadtest/issues/5)
 
 ## [0.2.8](https://github.com/flotorch/loadtest/compare/v0.2.7...v0.2.8) (2026-02-25)
 
