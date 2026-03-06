@@ -24,20 +24,20 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@smithy/hash-node": "4.2.8",
-    "@smithy/protocol-http": "5.3.8",
-    "@smithy/signature-v4": "5.3.8",
+    "@smithy/hash-node": "4.2.11",
+    "@smithy/protocol-http": "5.3.11",
+    "@smithy/signature-v4": "5.3.11",
     "gpt-tokenizer": "3.4.0",
     "ink": "6.8.0",
     "react": "19.2.4",
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "@types/node": "25.3.0",
+    "@types/node": "25.3.5",
     "@types/react": "19.2.14",
-    "oxfmt": "0.33.0",
-    "oxlint": "1.48.0",
-    "oxlint-tsgolint": "0.14.1",
+    "oxfmt": "0.36.0",
+    "oxlint": "1.51.0",
+    "oxlint-tsgolint": "0.16.0",
     "tsup": "8.5.1",
     "tsx": "^4.21.0",
     "vitest": "^4.0.18"
