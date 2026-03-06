@@ -45,7 +45,7 @@ const results = batches.map(({ targetInput, targetOutput }) => {
   }
 
   const text = parts.join("\n");
-  const header = `Randomly stream lines from the following text with ${targetOutput} output tokens. Don't generate eos tokens:\n\n`;
+  const header = `Randomly stream lines from the following text with ${targetOutput} output tokens. Don't generate eos tokens:\n`;
   const fullText = header + text + (prompt ? `\n${prompt}` : "");
   const finalTokens = countTokens(fullText);
 

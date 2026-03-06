@@ -110,7 +110,7 @@ export class SyntheticGenerator implements IGenerator {
 
     const text = parts.join("\n");
     const suffix = this.config.generator.prompt ?? "";
-    const header = `Randomly stream lines from the following text with ${targetOutputTokens} output tokens. Don't generate eos tokens:\n\n`;
+    const header = `Randomly stream lines from the following text with ${targetOutputTokens} output tokens. Don't generate eos tokens:\n`;
     const fullText = header + text + (suffix ? `\n${suffix}` : "");
     const finalTokens = countTokens(fullText);
 
