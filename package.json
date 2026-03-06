@@ -19,7 +19,9 @@
     "lint:fix": "oxlint --fix --type-aware",
     "format": "oxfmt",
     "build": "tsup",
-    "dev": "tsx index.ts"
+    "dev": "tsx index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@smithy/hash-node": "4.2.8",
@@ -37,7 +39,8 @@
     "oxlint": "1.48.0",
     "oxlint-tsgolint": "0.14.1",
     "tsup": "8.5.1",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "typescript": "5.9.3"
