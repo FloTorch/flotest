@@ -273,8 +273,7 @@ export class SageMakerBackend implements IBackend {
               }
 
               // Try OpenAI delta format first, then legacy token.text
-              const content =
-                chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
+              const content = chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
               if (content) {
                 const now = performance.now();
                 if (firstToken) {
@@ -285,10 +284,7 @@ export class SageMakerBackend implements IBackend {
                 }
                 lastChunkTime = now;
                 generatedText += content;
-              } else if (
-                typeof chunk.generated_text === "string" &&
-                !generatedText
-              ) {
+              } else if (typeof chunk.generated_text === "string" && !generatedText) {
                 generatedText = chunk.generated_text;
               }
 
@@ -351,8 +347,7 @@ export class SageMakerBackend implements IBackend {
               token?: { text?: string };
               details?: { generated_tokens?: number };
             };
-            const content =
-              chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
+            const content = chunk.choices?.[0]?.delta?.content ?? chunk.token?.text;
             if (content) {
               const now = performance.now();
               if (firstToken) {

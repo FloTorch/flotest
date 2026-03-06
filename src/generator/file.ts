@@ -28,7 +28,7 @@ export class FileGenerator implements IGenerator {
       });
   }
 
-  generate(count: number): PromptRecord[] {
+  async generate(count: number): Promise<PromptRecord[]> {
     const results: PromptRecord[] = [];
     for (let i = 0; i < count; i++) {
       results.push(this.records[i % this.records.length]!);

@@ -182,8 +182,8 @@ The config file is JSON with four sections:
 
 ### SageMaker `provider.config` options
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
+| Key             | Type                        | Default    | Description                                                                                                                              |
+| --------------- | --------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `requestFormat` | `"openai"` \| `"sagemaker"` | `"openai"` | Controls request body format. `"openai"` sends `messages` array (modern LMI/vLLM). `"sagemaker"` sends raw `inputs` string (legacy TGI). |
 
 When `adapter` is `"sagemaker"`:

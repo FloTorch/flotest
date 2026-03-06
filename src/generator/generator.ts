@@ -4,7 +4,7 @@ import { SyntheticGenerator } from "./synthetic.ts";
 import { FileGenerator } from "./file.ts";
 
 export interface IGenerator {
-  generate(count: number): PromptRecord[];
+  generate(count: number): Promise<PromptRecord[]>;
   generateOne(targetInputTokens: number, targetOutputTokens: number): PromptRecord;
 }
 

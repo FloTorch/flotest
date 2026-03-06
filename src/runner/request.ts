@@ -44,7 +44,11 @@ export async function executeRequest(
       inputText: prompt.text,
       inputTokens: prompt.tokenCount,
       outputTokens: response.outputTokens,
-      outputThroughputTps: isEmpty ? 0 : (e2eLatencyMs > 0 ? response.outputTokens / (e2eLatencyMs / 1000) : 0),
+      outputThroughputTps: isEmpty
+        ? 0
+        : e2eLatencyMs > 0
+          ? response.outputTokens / (e2eLatencyMs / 1000)
+          : 0,
       generatedText: response.generatedText,
       phase,
       cacheHit,
