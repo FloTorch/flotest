@@ -11,7 +11,7 @@ import { ProgressDisplay } from "./src/cli/progress.ts";
 import { bold, dim, green, red, cyan } from "./src/cli/ansi.ts";
 import type { PromptRecord } from "./src/types/prompt.ts";
 import type { SummaryMetrics, MetricAggregate } from "./src/types/metrics.ts";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, openSync, writeSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./src/types/config.ts";
 
@@ -194,10 +194,12 @@ async function runFullPipeline(config: Config, outputDir: string): Promise<void>
   stageOk("Generating prompts", `${prompts.length} prompts`);
 
   mkdirSync(outputDir, { recursive: true });
-  writeFileSync(
-    join(outputDir, "prompts.jsonl"),
-    prompts.map((p) => JSON.stringify(p)).join("\n") + "\n",
-  );
+  const promptsPath = join(outputDir, "prompts.jsonl");
+  const fd = openSync(promptsPath, "w");
+  for (const p of prompts) {
+    writeSync(fd, JSON.stringify(p) + "\n");
+  }
+  closeSync(fd);
 
   // Stage 2: Run benchmark
   stageRun("Running benchmark...");
@@ -252,7 +254,11 @@ async function runGenerate(config: Config, outputDir: string): Promise<void> {
 
   mkdirSync(outputDir, { recursive: true });
   const outPath = join(outputDir, "prompts.jsonl");
-  writeFileSync(outPath, prompts.map((p) => JSON.stringify(p)).join("\n") + "\n");
+  const fd = openSync(outPath, "w");
+  for (const p of prompts) {
+    writeSync(fd, JSON.stringify(p) + "\n");
+  }
+  closeSync(fd);
   process.stdout.write("\x1b[1A\x1b[2K");
   stageOk("Generating prompts", `${prompts.length} → ${cyan(outPath)}`);
 }
