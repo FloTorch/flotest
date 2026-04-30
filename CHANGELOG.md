@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.0](https://github.com/FloTorch/flotest/compare/v0.3.3...v0.4.0) (2026-04-30)
+
+
+### Features
+
+* **metrics:** add emptyResponses tracking and display in stats panel ([6e2e01d](https://github.com/FloTorch/flotest/commit/6e2e01da7b713e0c2e792f61b9b4ca386cd382b9))
+* Parallel prompt generation ([#6](https://github.com/FloTorch/flotest/issues/6)) ([c5e6ee9](https://github.com/FloTorch/flotest/commit/c5e6ee9a97e52999caad13b2c555fa491fba4ef9))
+
+
+### Bug Fixes
+
+* fix sagemaker stream processing ([7759b93](https://github.com/FloTorch/flotest/commit/7759b93c30e9880cabf4a545734930de113e8090))
+* **metrics:** measure TTFT from request start and fix SageMaker ITL accuracy ([#2](https://github.com/FloTorch/flotest/issues/2)) ([e7a9da8](https://github.com/FloTorch/flotest/commit/e7a9da8241aa79c713dfa6e2b963565ca84b69f4))
+* rename to flotest ([bee109c](https://github.com/FloTorch/flotest/commit/bee109c2a41d8c114a273f4aff52786ba4c6cc5f))
+* sagemaker headers ([992a7fa](https://github.com/FloTorch/flotest/commit/992a7fad762b260a02ffedaa706f49c8d562add2))
+* **sagemaker:** default to OpenAI messages format for modern LMI/vLLM containers ([#1](https://github.com/FloTorch/flotest/issues/1)) ([4687b2e](https://github.com/FloTorch/flotest/commit/4687b2e312083f03344583bcc0a567b140c2e7b6))
+
 ## [0.3.3](https://github.com/flotorch/loadtest/compare/v0.3.2...v0.3.3) (2026-03-06)
 
 ### Bug Fixes
