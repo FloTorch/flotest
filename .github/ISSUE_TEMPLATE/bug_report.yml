@@ -21,7 +21,7 @@ body:
       label: Steps to Reproduce
       description: Steps to reproduce the behavior.
       placeholder: |
-        1. Run `flotorch-loadtest ...`
+        1. Run `flotest ...`
         2. Wait for results
         3. See error
     validations:
@@ -47,7 +47,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: "Output of `flotorch-loadtest --version`"
+      description: "Output of `flotest --version`"
       placeholder: "0.2.8"
     validations:
       required: true

@@ -1,19 +1,22 @@
 {
-  "name": "@flotorch/loadtest",
+  "name": "@flotorch/flotest",
   "version": "0.3.3",
   "description": "LLM inference load testing and benchmarking tool",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/flotorch/loadtest"
+    "url": "https://github.com/flotorch/flotest"
   },
   "bin": {
-    "flotorch-loadtest": "./dist/index.js"
+    "flotest": "./dist/index.js"
   },
   "files": [
     "dist"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "lint": "oxlint",
     "lint:fix": "oxlint --fix --type-aware",

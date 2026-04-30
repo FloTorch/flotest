@@ -18,23 +18,23 @@ Requires **Node.js 18+**.
 
 ```bash
 # npm
-npm install -g @flotorch/loadtest
+npm install -g @flotorch/flotest
 
 # pnpm
-pnpm add -g @flotorch/loadtest
+pnpm add -g @flotorch/flotest
 
 # yarn
-yarn global add @flotorch/loadtest
+yarn global add @flotorch/flotest
 ```
 
-After installation, the `flotorch-loadtest` command is available globally.
+After installation, the `flotest` command is available globally.
 
 ## Quick Start
 
 ### 1. Generate a config file
 
 ```bash
-flotorch-loadtest init
+flotest init
 ```
 
 This launches an interactive wizard that asks for:
@@ -51,7 +51,7 @@ This launches an interactive wizard that asks for:
 Writes `config.json` to the current directory. You can specify a custom path:
 
 ```bash
-flotorch-loadtest init my-test.json
+flotest init my-test.json
 ```
 
 ### 2. Set credentials
@@ -78,7 +78,7 @@ Alternatively, configure credentials via `~/.aws/credentials` and set `AWS_REGIO
 ### 3. Run the load test
 
 ```bash
-flotorch-loadtest run -c config.json
+flotest run -c config.json
 ```
 
 This runs the full pipeline: **generate prompts → run benchmark → generate report**.
@@ -104,10 +104,10 @@ Results are saved to `./results/<run-id>/` containing:
 | `init [path]` | Interactively create a config file                     |
 
 ```bash
-flotorch-loadtest run -c config.json        # full pipeline
-flotorch-loadtest generate -c config.json   # prompts only
-flotorch-loadtest bench -c config.json      # benchmark only
-flotorch-loadtest report -c config.json     # report only
+flotest run -c config.json        # full pipeline
+flotest generate -c config.json   # prompts only
+flotest bench -c config.json      # benchmark only
+flotest report -c config.json     # report only
 ```
 
 ## CLI Options
@@ -130,7 +130,7 @@ Any config value can be overridden from the command line:
 Example — override concurrency and model on the fly:
 
 ```bash
-flotorch-loadtest run -c config.json -n 50 -m gpt-4o
+flotest run -c config.json -n 50 -m gpt-4o
 ```
 
 ## Configuration Reference
@@ -286,7 +286,7 @@ export AWS_ACCESS_KEY_ID="AKIA..."
 export AWS_SECRET_ACCESS_KEY="..."
 # export AWS_SESSION_TOKEN="..."   # only needed for temporary credentials
 
-flotorch-loadtest run -c config.json
+flotest run -c config.json
 ```
 
 The tool calls `https://runtime.sagemaker.<region>.amazonaws.com/endpoints/<model>/invocations-response-stream` for streaming or `.../invocations` for non-streaming, signing each request with AWS Signature V4.
