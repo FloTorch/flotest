@@ -1,4 +1,4 @@
-# FLOTorch Load Tester
+# FLOTorch FloTest
 
 LLM inference load testing and benchmarking tool. Measure TTFT, TPS, latency percentiles, and throughput of any OpenAI-compatible or SageMaker endpoint under sustained concurrent load.
 
