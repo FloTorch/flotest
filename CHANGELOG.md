@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **openai:** replace bare `fetch()` with keep-alive connection pool to eliminate SSH-tunnel timeout errors at high concurrency ([#keepalive](https://github.com/FloTorch/flotest/pull/TBD))
+
+  Node.js built-in `fetch()` opens a new TCP connection for every request.
+  When the endpoint is behind an SSH port-forward tunnel, each new connection
+  requires the SSH multiplexer to open a new channel. Under load (≥ 160
+  concurrent long-running requests), SSH channel setup takes > 5 s, causing
+  the built-in undici transport to time out the socket and surface the error
+  as the opaque `"fetch failed"` message.
+
+  Fix: route all requests through a shared `http.Agent` / `https.Agent` with
+  `keepAlive: true`. Successive requests reuse existing TCP connections,
+  eliminating SSH channel setup from the critical path.
+
+  **Measured improvement** against a 4-replica vLLM cluster
+  (Qwen/Qwen3-30B-A3B, concurrency=160, ISL=12 k, OSL=1 k, t=600 s):
+
+  | Metric | Before | After |
+  |--------|--------|-------|
+  | Error rate | 43.8 % | 18.6 % (−57 %) |
+  | Output TPS | 3,017 tok/s | 4,110 tok/s (+36 %) |
+  | E2E latency p50 | 48,464 ms | 35,314 ms (−27 %) |
+  | E2E latency p99 | 73,503 ms | 62,592 ms (−15 %) |
+  | Error type | `fetch failed` (opaque) | `ECONNRESET` (named) |
+
 ## [0.4.0](https://github.com/FloTorch/flotest/compare/v0.3.3...v0.4.0) (2026-04-30)
 
 
