@@ -7,6 +7,8 @@ export function makeConfig(
     outputMean: number;
     outputStddev: number;
     maxRequests: number;
+    cachePercentage: number;
+    concurrency: number;
   }> = {},
 ): Config {
   return {
@@ -21,11 +23,11 @@ export function makeConfig(
         stddev: overrides.outputStddev ?? 5,
       },
       maxRequests: overrides.maxRequests ?? 10,
-      concurrency: 1,
+      concurrency: overrides.concurrency ?? 1,
       timeout: 600,
       outputDir: "./results",
       streaming: true,
-      cachePercentage: 0,
+      cachePercentage: overrides.cachePercentage ?? 0,
     },
     provider: { adapter: "openai", model: "test-model" },
     reporter: { adapters: ["json"] },
