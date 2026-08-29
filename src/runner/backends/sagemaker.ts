@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fetch } from "undici";
 import { SignatureV4 } from "@smithy/signature-v4";
 import { Hash } from "@smithy/hash-node";
 import { HttpRequest } from "@smithy/protocol-http";
