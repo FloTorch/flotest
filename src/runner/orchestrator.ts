@@ -14,6 +14,11 @@ export type ProgressCallback = (
   allowedConcurrency: number,
 ) => void;
 
+// How many of the most recently *freshly-issued* prompts are kept around to
+// resend verbatim for a "cache hit" request. Bounded so memory/behavior stays
+// predictable on long runs rather than accumulating every prompt ever sent.
+const RECENT_PROMPT_POOL_SIZE = 20;
+
 export class ConcurrencyOrchestrator {
   private config: Config;
   private backend: IBackend;
@@ -21,11 +26,15 @@ export class ConcurrencyOrchestrator {
   private wal: WAL;
   private phaseController: PhaseController;
   private promptIndex = 0;
+  private dispatchedCount = 0;
   private completedRequests = 0;
   private activeSlots = 0;
   private results: RequestMetrics[] = [];
   private aborted = false;
   private onProgress?: ProgressCallback;
+  // Prompts already sent, so a "cache hit" request can resend an exact previous
+  // prompt and give the backend's prefix cache a full-length match.
+  private recentPrompts: PromptRecord[] = [];
 
   constructor(
     config: Config,
@@ -64,13 +73,14 @@ export class ConcurrencyOrchestrator {
         continue;
       }
 
-      const prompt = this.getNextPrompt();
-      if (!prompt) break;
+      const wantsCacheHit = this.isCacheHit();
+      const picked = this.getNextPrompt(wantsCacheHit);
+      if (!picked) break;
+      const { prompt, cacheHit } = picked;
 
       this.activeSlots++;
       const requestId = crypto.randomUUID();
       const phase = this.phaseController.phase;
-      const cacheHit = this.isCacheHit();
 
       const metrics = await executeRequest(
         this.backend,
@@ -99,13 +109,39 @@ export class ConcurrencyOrchestrator {
     }
   }
 
-  private getNextPrompt(): PromptRecord | null {
-    if (this.prompts.length === 0) return null;
+  /**
+   * Picks the prompt for the next request.
+   *
+   * `wantsCacheHit` is the random intent from `isCacheHit()`; the returned
+   * `cacheHit` reflects what ACTUALLY happened, which can differ from intent
+   * when there's no prior prompt yet to repeat (e.g. the very first request
+   * on this slot) — in that case we fall through to a fresh prompt rather
+   * than report a cache hit that never occurred. Callers must use the
+   * returned `cacheHit`, not `wantsCacheHit`, when recording metrics.
+   *
+   * `dispatchedCount` (not `promptIndex`) gates `maxRequests`: a cache-hit
+   * request resends a prompt without consuming a new slot in the fresh pool,
+   * so `promptIndex` alone would no longer count total dispatched requests.
+   */
+  private getNextPrompt(wantsCacheHit: boolean): { prompt: PromptRecord; cacheHit: boolean } | null {
     const maxReqs = this.config.benchmark.maxRequests ?? Infinity;
-    if (this.promptIndex >= maxReqs) return null;
+    if (this.dispatchedCount >= maxReqs) return null;
+
+    if (wantsCacheHit && this.recentPrompts.length > 0) {
+      const idx = Math.floor(Math.random() * this.recentPrompts.length);
+      this.dispatchedCount++;
+      return { prompt: this.recentPrompts[idx]!, cacheHit: true };
+    }
+
+    if (this.prompts.length === 0) return null;
     const prompt = this.prompts[this.promptIndex % this.prompts.length]!;
     this.promptIndex++;
-    return prompt;
+    this.dispatchedCount++;
+    this.recentPrompts.push(prompt);
+    if (this.recentPrompts.length > RECENT_PROMPT_POOL_SIZE) {
+      this.recentPrompts.shift();
+    }
+    return { prompt, cacheHit: false };
   }
 
   private isCacheHit(): boolean {
