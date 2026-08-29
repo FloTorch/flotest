@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fetch } from "undici";
 import type { IBackend, BackendResponse } from "../backend.ts";
 import { countTokens } from "../../generator/tokenizer.ts";
 import { validateEnv } from "../../schemas/config.zod.ts";

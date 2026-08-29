@@ -30,6 +30,7 @@ export function makeConfig(
       cachePercentage: overrides.cachePercentage ?? 0,
     },
     provider: { adapter: "openai", model: "test-model" },
+    http: { keepAliveTimeout: 60, connectTimeout: 10 },
     reporter: { adapters: ["json"] },
   } as Config;
 }

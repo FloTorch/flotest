@@ -14,7 +14,7 @@ LLM inference load testing and benchmarking tool. Measure TTFT, TPS, latency per
 
 ## Installation
 
-Requires **Node.js 18+**.
+Requires **Node.js 22.19+**.
 
 ```bash
 # npm
@@ -135,7 +135,7 @@ flotest run -c config.json -n 50 -m gpt-4o
 
 ## Configuration Reference
 
-The config file is JSON with four sections:
+The config file is JSON with five sections:
 
 ```jsonc
 {
@@ -171,6 +171,12 @@ The config file is JSON with four sections:
     "enabled": false, // use synthetic prompt generator
     "prompt": "Custom instruction...", // optional custom prompt template
     "corpus": "./my-corpus.txt", // optional custom corpus file
+  },
+  "http": {
+    // optional: keep-alive connection pool shared by all requests
+    "maxConnections": 10, // pool size per host (default: benchmark.concurrency)
+    "keepAliveTimeout": 60, // seconds an idle connection stays open (default: 60)
+    "connectTimeout": 10, // seconds to wait for a TCP connection (default: 10)
   },
   "reporter": {
     "adapters": ["json", "csv"], // export formats (default: ["json"])
