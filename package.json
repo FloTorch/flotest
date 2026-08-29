@@ -34,6 +34,7 @@
     "gpt-tokenizer": "3.4.0",
     "ink": "6.8.0",
     "react": "19.2.4",
+    "undici": "^8.10.0",
     "zod": "4.3.6"
   },
   "devDependencies": {

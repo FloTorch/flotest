@@ -3,6 +3,7 @@ import { runInit } from "./src/cli/init.ts";
 import { createGenerator } from "./src/generator/generator.ts";
 import { createBackend } from "./src/runner/backend.ts";
 import { ConcurrencyOrchestrator } from "./src/runner/orchestrator.ts";
+import { installHttpAgent } from "./src/runner/http.ts";
 import { WAL } from "./src/runner/wal.ts";
 import { computeSummary } from "./src/reporter/aggregator.ts";
 import { createExporters } from "./src/reporter/exporter.ts";
@@ -226,7 +227,13 @@ async function runFullPipeline(config: Config, outputDir: string): Promise<void>
   onShutdown(() => orchestrator.abort());
   await progress.start();
 
-  const results = await orchestrator.run(controller.signal);
+  const httpAgent = installHttpAgent(config);
+  let results;
+  try {
+    results = await orchestrator.run(controller.signal);
+  } finally {
+    await httpAgent.close();
+  }
   progress.stop();
 
   stageOk("Running benchmark", `${results.length} requests`);
@@ -301,7 +308,13 @@ async function runBench(config: Config, outputDir: string): Promise<void> {
   onShutdown(() => orchestrator.abort());
   await progress.start();
 
-  const results = await orchestrator.run(controller.signal);
+  const httpAgent = installHttpAgent(config);
+  let results;
+  try {
+    results = await orchestrator.run(controller.signal);
+  } finally {
+    await httpAgent.close();
+  }
   progress.stop();
 
   stageOk("Running benchmark", `${results.length} requests → ${cyan(outputDir)}`);

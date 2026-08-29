@@ -48,6 +48,13 @@ export const ConfigSchema = z.object({
     systemPrompt: z.string().optional(),
     config: z.record(z.string(), z.any()).optional(),
   }),
+  http: z
+    .object({
+      maxConnections: z.number().int().positive().optional(),
+      keepAliveTimeout: z.number().nonnegative().default(60),
+      connectTimeout: z.number().positive().default(10),
+    })
+    .default(() => ({ keepAliveTimeout: 60, connectTimeout: 10 })),
   reporter: z
     .object({
       adapters: z.array(z.enum(["json", "csv"])).default(["json"]),
