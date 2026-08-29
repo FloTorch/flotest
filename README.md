@@ -1,20 +1,22 @@
-# FLOTorch FloTest
+# FloTest
 
-LLM inference load testing and benchmarking tool. Measure TTFT, TPS, latency percentiles, and throughput of any OpenAI-compatible or SageMaker endpoint under sustained concurrent load.
+FloTest is a load testing and benchmarking tool for large language model (LLM) inference endpoints. It sends synthetic prompts to an OpenAI-compatible or Amazon SageMaker endpoint under sustained concurrent load and reports time to first token (TTFT), tokens per second (TPS), latency percentiles, and throughput.
 
 ## Features
 
-- Single-command benchmarking with auto-generated synthetic prompts
-- Accurate concurrency control with ramp-up/ramp-down phases
-- Streaming and non-streaming support
-- Comprehensive metrics: TTFT, TTFNT, TPS, RPM, ITL, E2E latency, percentiles (p25–p99)
-- JSON and CSV report exports with per-request logs
-- Cache-hit simulation for testing endpoint caching behavior
-- OpenAI-compatible API and AWS SageMaker backends
+- **One command for the full pipeline.** `flotest run` generates prompts, runs the benchmark, and writes the report.
+- **Synthetic prompt generation.** FloTest builds prompts to a target token count from a built-in corpus or a corpus that you supply. For more than 10 prompts, generation runs in parallel across worker threads.
+- **Accurate concurrency control.** FloTest holds a fixed number of in-flight requests and supports ramp-up and ramp-down phases.
+- **Keep-alive connection pool.** All requests share a configurable connection pool, so requests under sustained load reuse TCP connections instead of opening new ones.
+- **Genuine cache-hit simulation.** With `cachePercentage` set, FloTest resends the exact text of a recent prompt so that the endpoint's prefix cache receives a real repeat.
+- **Streaming and non-streaming requests.**
+- **Per-request and summary metrics.** TTFT, time to first non-thinking token (TTFNT), inter-token latency (ITL), end-to-end latency, TPS, requests per minute (RPM), empty-response count, and percentiles from p25 to p99.
+- **JSON and CSV reports** with per-request logs and full response bodies.
+- **Two backends.** OpenAI-compatible APIs and Amazon SageMaker runtime endpoints.
 
-## Installation
+## Install
 
-Requires **Node.js 22.19+**.
+FloTest requires Node.js 22.19 or later.
 
 ```bash
 # npm
@@ -27,81 +29,86 @@ pnpm add -g @flotorch/flotest
 yarn global add @flotorch/flotest
 ```
 
-After installation, the `flotest` command is available globally.
+After installation, the `flotest` command is available on your `PATH`.
 
-## Quick Start
+## Get started
 
-### 1. Generate a config file
+### Create a config file
+
+To create a config file interactively, run the following command:
 
 ```bash
 flotest init
 ```
 
-This launches an interactive wizard that asks for:
+The wizard asks for the following values:
 
-- **Provider adapter** — `openai` or `sagemaker` (default: `openai`)
-- **Model name** — the model identifier your endpoint expects
-- **Base URL** — API endpoint (default: `https://api.openai.com/v1`)
-- **Concurrency** — number of parallel requests (default: `10`)
-- **Input tokens mean** — average input token count per request (default: `512`)
-- **Output tokens mean** — average output token count per request (default: `256`)
-- **Max requests** — total number of requests to send (default: `100`)
-- **Streaming** — whether to stream responses (default: `y`)
+| Prompt             | Description                                        | Default                     |
+| ------------------ | -------------------------------------------------- | --------------------------- |
+| Provider adapter   | `openai` or `sagemaker`                            | `openai`                    |
+| Model name         | The model identifier that your endpoint expects    | none                        |
+| Base URL           | The API endpoint                                   | `https://api.openai.com/v1` |
+| Concurrency        | Number of parallel requests                        | `10`                        |
+| Input tokens mean  | Average input token count for each request         | `512`                       |
+| Output tokens mean | Average output token count for each request        | `256`                       |
+| Max requests       | Total number of requests to send                   | `100`                       |
+| Streaming          | Whether to stream responses                        | `y`                         |
 
-Writes `config.json` to the current directory. You can specify a custom path:
+The wizard writes `config.json` to the current directory. To write to a different path, pass the path as an argument:
 
 ```bash
 flotest init my-test.json
 ```
 
-### 2. Set credentials
+### Set credentials
 
-**OpenAI / OpenAI-compatible:**
+**OpenAI-compatible endpoints:**
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
 
-**AWS SageMaker:**
+**Amazon SageMaker endpoints:**
 
-The SageMaker backend reads standard AWS environment variables. At minimum, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Provide `AWS_SESSION_TOKEN` when using temporary credentials (e.g., `aws sts assume-role`).
+The SageMaker backend reads the standard AWS environment variables. At minimum, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. If you use temporary credentials, for example from `aws sts assume-role`, also set `AWS_SESSION_TOKEN`.
 
 ```bash
 export AWS_REGION="us-east-1"
 export AWS_ACCESS_KEY_ID="AKIA..."
 export AWS_SECRET_ACCESS_KEY="wJalr..."
-# export AWS_SESSION_TOKEN="FwoGZX..."  # only for temporary/session credentials
+# export AWS_SESSION_TOKEN="FwoGZX..."  # temporary credentials only
 ```
 
-Alternatively, configure credentials via `~/.aws/credentials` and set `AWS_REGION` (or `AWS_DEFAULT_REGION`).
+You can also store credentials in `~/.aws/credentials` and set `AWS_REGION` or `AWS_DEFAULT_REGION`.
 
-### 3. Run the load test
+### Run the load test
 
 ```bash
 flotest run -c config.json
 ```
 
-This runs the full pipeline: **generate prompts → run benchmark → generate report**.
+The `run` command generates prompts, runs the benchmark, and then writes the report.
 
-Results are saved to `./results/<run-id>/` containing:
+FloTest saves results to `./results/<run-id>/`:
 
-| File                    | Description                                                        |
-| ----------------------- | ------------------------------------------------------------------ |
-| `summary.json`          | Aggregated metrics (latency, throughput, error rates, percentiles) |
-| `run_log.jsonl`         | Per-request metrics streamed during the run                        |
-| `prompts.jsonl`         | All generated prompts                                              |
-| `individual_responses/` | Full response data for each request                                |
-| `config.resolved.json`  | Final merged configuration used                                    |
+| File                    | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `summary.json`          | Aggregated metrics: latency, throughput, error rates, and percentiles   |
+| `run_log.jsonl`         | Per-request metrics, written as each request completes                   |
+| `prompts.jsonl`         | All generated prompts                                                    |
+| `individual_responses/` | The full response for each request                                       |
+| `config.resolved.json`  | The final merged configuration that the run used                         |
+| `overrides.json`        | Command-line overrides that were applied, if any                         |
 
 ## Commands
 
-| Command       | Description                                            |
-| ------------- | ------------------------------------------------------ |
-| `run`         | Full pipeline: generate → bench → report **(default)** |
-| `generate`    | Generate and save prompts only                         |
-| `bench`       | Run benchmark using pre-generated prompts              |
-| `report`      | Generate report from existing benchmark results        |
-| `init [path]` | Interactively create a config file                     |
+| Command       | Description                                                   |
+| ------------- | ------------------------------------------------------------- |
+| `run`         | Generate prompts, run the benchmark, and write the report. This is the default command. |
+| `generate`    | Generate prompts and save them to `prompts.jsonl`.            |
+| `bench`       | Run the benchmark with prompts that you generated earlier.    |
+| `report`      | Write a report from an existing `run_log.jsonl`.              |
+| `init [path]` | Create a config file interactively.                           |
 
 ```bash
 flotest run -c config.json        # full pipeline
@@ -110,32 +117,38 @@ flotest bench -c config.json      # benchmark only
 flotest report -c config.json     # report only
 ```
 
-## CLI Options
+The `bench` command requires `benchmark.inputFile` to point to a `prompts.jsonl` file. The `report` command requires `benchmark.inputFile` to point to a run output directory that contains `run_log.jsonl`.
 
-Any config value can be overridden from the command line:
+## Command-line options
 
-| Flag                  | Short | Description                                |
-| --------------------- | ----- | ------------------------------------------ |
-| `--config <path>`     | `-c`  | Path to config JSON (required)             |
-| `--run-id <id>`       |       | Custom run ID (default: ISO timestamp)     |
-| `--model <name>`      | `-m`  | Override `provider.model`                  |
-| `--concurrency <n>`   | `-n`  | Override `benchmark.concurrency`           |
-| `--max-requests <n>`  |       | Override `benchmark.maxRequests`           |
-| `--max-duration <n>`  |       | Override `benchmark.maxDuration` (seconds) |
-| `--output-dir <path>` | `-o`  | Override `benchmark.outputDir`             |
-| `--base-url <url>`    |       | Override `provider.baseURL`                |
-| `--streaming`         |       | Enable streaming                           |
-| `--no-streaming`      |       | Disable streaming                          |
+You can override config values from the command line:
 
-Example — override concurrency and model on the fly:
+| Flag                  | Short | Description                                    |
+| --------------------- | ----- | ---------------------------------------------- |
+| `--config <path>`     | `-c`  | Path to the config JSON file. Required.        |
+| `--run-id <id>`       |       | Custom run ID. Defaults to an ISO timestamp.   |
+| `--model <name>`      | `-m`  | Overrides `provider.model`.                    |
+| `--concurrency <n>`   | `-n`  | Overrides `benchmark.concurrency`.             |
+| `--max-requests <n>`  |       | Overrides `benchmark.maxRequests`.             |
+| `--max-duration <n>`  |       | Overrides `benchmark.maxDuration`, in seconds. |
+| `--output-dir <path>` | `-o`  | Overrides `benchmark.outputDir`.               |
+| `--base-url <url>`    |       | Overrides `provider.baseURL`.                  |
+| `--streaming`         |       | Enables streaming.                             |
+| `--no-streaming`      |       | Disables streaming.                            |
+| `--version`           | `-v`  | Prints the version number.                     |
+| `--help`              | `-h`  | Prints the help text.                          |
+
+The following example overrides concurrency and model:
 
 ```bash
 flotest run -c config.json -n 50 -m gpt-4o
 ```
 
-## Configuration Reference
+FloTest saves overrides to `overrides.json` in the run directory. If you run a later command with the same `--run-id`, FloTest applies the saved overrides again, and then applies any new command-line overrides on top of them.
 
-The config file is JSON with five sections:
+## Configuration reference
+
+The config file is a JSON document with five sections:
 
 ```jsonc
 {
@@ -150,32 +163,32 @@ The config file is JSON with five sections:
     "concurrency": 10, // parallel requests (required)
     "inputTokens": { "mean": 512, "stddev": 51 }, // input token distribution
     "outputTokens": { "mean": 256, "stddev": 26 }, // output token distribution
-    "maxRequests": 100, // total requests (required if no maxDuration)
-    "maxDuration": 60, // duration in seconds (required if no maxRequests)
+    "maxRequests": 100, // total requests (required if maxDuration is not set)
+    "maxDuration": 60, // duration in seconds (required if maxRequests is not set)
     "timeout": 600, // per-request timeout in seconds (default: 600)
     "streaming": true, // stream responses (default: true)
-    "cachePercentage": 0, // % of requests reusing previous prompts (0–100)
+    "cachePercentage": 0, // percentage of requests that resend a recent prompt (0–100)
     "outputDir": "./results", // results directory (default: ./results)
-    "inputFile": "prompts.jsonl", // pre-generated prompts (for bench command)
+    "inputFile": "prompts.jsonl", // input for the bench and report commands
     "rampUp": {
-      // optional: gradually increase concurrency
+      // optional: increase concurrency gradually
       "duration": 30, //   over N seconds, or
       "requests": 50, //   over N requests
     },
     "rampDown": {
-      // optional: gradually decrease concurrency
+      // optional: decrease concurrency gradually
       "duration": 15,
     },
   },
   "generator": {
-    "enabled": false, // use synthetic prompt generator
-    "prompt": "Custom instruction...", // optional custom prompt template
+    "enabled": false, // use the synthetic prompt generator
+    "prompt": "Custom instruction...", // optional instruction prepended to each prompt
     "corpus": "./my-corpus.txt", // optional custom corpus file
   },
   "http": {
     // optional: keep-alive connection pool shared by all requests
     "maxConnections": 10, // pool size per host (default: benchmark.concurrency)
-    "keepAliveTimeout": 60, // seconds an idle connection stays open (default: 60)
+    "keepAliveTimeout": 60, // seconds that an idle connection stays open (default: 60)
     "connectTimeout": 10, // seconds to wait for a TCP connection (default: 10)
   },
   "reporter": {
@@ -184,43 +197,79 @@ The config file is JSON with five sections:
 }
 ```
 
-> At least one of `maxRequests` or `maxDuration` is required. If `stddev` is omitted, it defaults to 10% of the mean.
+You must set at least one of `maxRequests` or `maxDuration`. If you omit `stddev`, FloTest uses 10% of the mean.
+
+### HTTP connection pool
+
+All requests from both backends go through one keep-alive connection pool. The pool prevents a problem that occurs with the default Node.js `fetch` behavior, where idle sockets close after 4 seconds and every replacement request under sustained load opens a new TCP connection. On a slow path, such as an SSH tunnel, that connection setup can exceed the request timeout and fail with the message `fetch failed`.
+
+| Key                | Type   | Default                 | Description                                                                                   |
+| ------------------ | ------ | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `maxConnections`   | number | `benchmark.concurrency` | Maximum open connections per host. The default matches concurrency so that the pool never limits the measured concurrency. |
+| `keepAliveTimeout` | number | `60`                    | Seconds that an idle connection stays open before the pool closes it.                        |
+| `connectTimeout`   | number | `10`                    | Seconds to wait for a TCP connection before the request fails.                               |
+
+Header and body timeouts follow `benchmark.timeout`. FloTest closes the pool at the end of the run so that the process exits.
+
+### Cache-hit simulation
+
+Set `benchmark.cachePercentage` to a value from 0 to 100 to make that percentage of requests resend the exact text of a prompt that FloTest already sent. This gives the endpoint's prefix cache a full-length match, so you can measure how caching changes TTFT and throughput.
+
+FloTest applies the following rules:
+
+- FloTest keeps the 20 most recent fresh prompts in a pool. A cache-hit request picks one of these prompts and resends the text unchanged.
+- If no prompt has been sent yet, for example on the first request of a run, FloTest sends a fresh prompt and records `cacheHit: false` for that request.
+- The `cacheHit` field in `run_log.jsonl` and the `cacheHitRate` in `summary.json` record what FloTest sent, not the random selection. The reported rate can therefore be slightly lower than the configured percentage.
+- A cache-hit request does not consume a prompt from the fresh pool. `maxRequests` counts every dispatched request, including cache hits.
+
+### Prompt generation
+
+When `generator.enabled` is `true`, FloTest builds each prompt from lines of a text corpus until the prompt reaches its target input token count. FloTest draws the target for each prompt from a Gaussian distribution around `inputTokens.mean`. Each prompt also carries a target output token count, which FloTest sends as the `max_tokens` limit. For OpenAI reasoning models such as o1, o3, and o4-mini, FloTest sends `max_completion_tokens` instead.
+
+- For 10 prompts or fewer, generation runs in the main process.
+- For more than 10 prompts, FloTest splits the work across worker threads, one for each available CPU core, and writes `prompts.jsonl` as a stream so that large prompt sets do not exceed the Node.js string length limit.
+- To use your own text, set `generator.corpus` to a path to a plain text file. To prepend an instruction to every prompt, set `generator.prompt`.
 
 ### SageMaker `provider.config` options
 
-| Key             | Type                        | Default    | Description                                                                                                                              |
-| --------------- | --------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `requestFormat` | `"openai"` \| `"sagemaker"` | `"openai"` | Controls request body format. `"openai"` sends `messages` array (modern LMI/vLLM). `"sagemaker"` sends raw `inputs` string (legacy TGI). |
+| Key             | Type                        | Default    | Description                                                                                                                                  |
+| --------------- | --------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requestFormat` | `"openai"` \| `"sagemaker"` | `"openai"` | Request body format. `"openai"` sends a `messages` array, which current LMI and vLLM containers accept. `"sagemaker"` sends a raw `inputs` string for legacy TGI containers. |
 
 When `adapter` is `"sagemaker"`:
 
-- `provider.model` is the **SageMaker endpoint name** (not a model ID).
-- `provider.baseURL` overrides the default SageMaker runtime URL (`https://runtime.sagemaker.<region>.amazonaws.com`). Useful for VPC endpoints or custom domains.
-- Streaming uses the `/endpoints/<model>/invocations-response-stream` path; non-streaming uses `/endpoints/<model>/invocations`.
-- Requests are signed with AWS Signature V4 using the configured credentials.
+- `provider.model` is the SageMaker endpoint name, not a model ID.
+- `provider.baseURL` replaces the default SageMaker runtime URL, `https://runtime.sagemaker.<region>.amazonaws.com`. Set `baseURL` if you use a VPC endpoint or a custom domain.
+- Streaming requests use the `/endpoints/<model>/invocations-response-stream` path. Non-streaming requests use `/endpoints/<model>/invocations`.
+- FloTest signs each request with AWS Signature Version 4 using the configured credentials.
 
-## Metrics Collected
+## Metrics
 
-### Per-request
+### Per-request metrics
 
-- **TTFT** — Time to first token (ms)
-- **TTFNT** — Time to first non-thinking token (for reasoning models)
-- **E2E Latency** — End-to-end request latency (ms)
-- **Inter-token latencies** — Time between successive tokens (streaming)
-- **Output throughput** — Tokens per second
-- **Input/output token counts**
-- **Phase** — ramp-up, steady, or ramp-down
-- **Cache hit** — Whether the request was a cache hit
-- **Error details** — Error message and code if failed
+Each line in `run_log.jsonl` records the following values for one request:
 
-### Summary
+- **TTFT.** Time to first token, in milliseconds, measured from the start of the request.
+- **TTFNT.** Time to first non-thinking token, in milliseconds, for reasoning models.
+- **End-to-end latency.** Total request time, in milliseconds.
+- **Inter-token latencies.** Time between successive tokens for streaming requests.
+- **Output throughput.** Output tokens per second.
+- **Input and output token counts.**
+- **Phase.** `ramp-up`, `steady`, or `ramp-down`.
+- **Cache hit.** Whether the request resent an earlier prompt.
+- **Error details.** The error message and code, if the request failed.
 
-- Success/failure counts and error rate
-- RPM (requests per minute) and overall TPS (tokens per second)
-- Percentiles (p25, p50, p75, p90, p95, p99) for all latency and throughput metrics
-- Error code frequency breakdown
-- Phase-level breakdown (requests and error rates per phase)
-- Cache hit rate
+### Summary metrics
+
+`summary.json` contains the following values for the whole run:
+
+- Success count, failure count, and error rate.
+- Empty-response count: successful requests that returned no output tokens.
+- RPM and overall TPS.
+- Percentiles p25, p50, p75, p90, p95, and p99 for every latency and throughput metric.
+- Error counts grouped by error code.
+- Request counts and error rates for each phase.
+- Cache hit rate.
 
 ## Examples
 
@@ -243,7 +292,9 @@ When `adapter` is `"sagemaker"`:
 }
 ```
 
-### Load test a self-hosted model (vLLM, Ollama, etc.)
+### Load test a self-hosted model
+
+This example targets a local vLLM or Ollama server and uses ramp-up and ramp-down phases.
 
 ```json
 {
@@ -264,9 +315,56 @@ When `adapter` is `"sagemaker"`:
 }
 ```
 
-### Load test an AWS SageMaker endpoint (LMI / vLLM container)
+### Measure prefix cache behavior
 
-Modern SageMaker LMI and vLLM containers accept the Chat Completions `messages` format automatically — no extra configuration needed. Set `adapter` to `"sagemaker"` and use your **SageMaker endpoint name** as `model`.
+This example resends a recent prompt for about 25% of requests, so you can compare TTFT for cache hits and cache misses in `run_log.jsonl`.
+
+```json
+{
+  "provider": {
+    "adapter": "openai",
+    "model": "meta-llama/Llama-3-8B",
+    "baseURL": "http://localhost:8000/v1"
+  },
+  "benchmark": {
+    "concurrency": 16,
+    "inputTokens": { "mean": 2048 },
+    "outputTokens": { "mean": 128 },
+    "maxRequests": 400,
+    "cachePercentage": 25,
+    "streaming": true
+  }
+}
+```
+
+### Tune the connection pool for a slow network path
+
+If the endpoint sits behind an SSH tunnel or a high-latency link, increase `connectTimeout` and keep idle connections open longer.
+
+```json
+{
+  "provider": {
+    "adapter": "openai",
+    "model": "meta-llama/Llama-3-8B",
+    "baseURL": "http://localhost:8000/v1"
+  },
+  "benchmark": {
+    "concurrency": 32,
+    "inputTokens": { "mean": 512 },
+    "outputTokens": { "mean": 256 },
+    "maxDuration": 300,
+    "timeout": 120
+  },
+  "http": {
+    "keepAliveTimeout": 300,
+    "connectTimeout": 30
+  }
+}
+```
+
+### Load test an Amazon SageMaker endpoint
+
+Current SageMaker LMI and vLLM containers accept the Chat Completions `messages` format, so the default `requestFormat` works. Set `adapter` to `"sagemaker"` and set `model` to your SageMaker endpoint name.
 
 ```json
 {
@@ -286,20 +384,19 @@ Modern SageMaker LMI and vLLM containers accept the Chat Completions `messages` 
 ```
 
 ```bash
-# Set AWS credentials
 export AWS_REGION="us-east-1"
 export AWS_ACCESS_KEY_ID="AKIA..."
 export AWS_SECRET_ACCESS_KEY="..."
-# export AWS_SESSION_TOKEN="..."   # only needed for temporary credentials
+# export AWS_SESSION_TOKEN="..."   # temporary credentials only
 
 flotest run -c config.json
 ```
 
-The tool calls `https://runtime.sagemaker.<region>.amazonaws.com/endpoints/<model>/invocations-response-stream` for streaming or `.../invocations` for non-streaming, signing each request with AWS Signature V4.
+FloTest calls `https://runtime.sagemaker.<region>.amazonaws.com/endpoints/<model>/invocations-response-stream` for streaming requests and `.../invocations` for non-streaming requests, and signs each request with AWS Signature Version 4.
 
-### SageMaker with legacy request format (TGI / HuggingFace containers)
+### Use the legacy SageMaker request format
 
-Older containers that don't support the `messages` field expect a raw text string via the `inputs` field. Set `requestFormat` to `"sagemaker"` in `provider.config`:
+Older TGI and Hugging Face containers do not accept the `messages` field. They expect the prompt as a raw string in the `inputs` field. To use this format, set `requestFormat` to `"sagemaker"` in `provider.config`:
 
 ```json
 {
@@ -320,11 +417,11 @@ Older containers that don't support the `messages` field expect a raw text strin
 }
 ```
 
-With the legacy format, the prompt is sent as `{ "inputs": "<prompt>", "parameters": { "max_new_tokens": N } }`. No chat template is applied — format your prompts accordingly.
+With the legacy format, FloTest sends `{ "inputs": "<prompt>", "parameters": { "max_new_tokens": N } }`. FloTest does not apply a chat template, so format your prompts for the model that you target.
 
-### SageMaker with custom endpoint URL and ramp-up
+### Use a custom SageMaker endpoint URL with ramp-up
 
-If your SageMaker endpoint uses a custom domain or VPC endpoint, override `baseURL`:
+If your SageMaker endpoint uses a custom domain or a VPC endpoint, set `baseURL`:
 
 ```json
 {
@@ -348,7 +445,7 @@ If your SageMaker endpoint uses a custom domain or VPC endpoint, override `baseU
 }
 ```
 
-### Time-bounded test with CSV output
+### Run a time-bounded test with CSV output
 
 ```json
 {
@@ -369,6 +466,10 @@ If your SageMaker endpoint uses a custom domain or VPC endpoint, override `baseU
   }
 }
 ```
+
+## Contributing guide
+
+The [contributing guide](CONTRIBUTING.md) describes how to set up a development environment, run the tests, and submit a pull request.
 
 ## License
 
