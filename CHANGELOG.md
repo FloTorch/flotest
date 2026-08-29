@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.1](https://github.com/FloTorch/flotest/compare/v0.4.0...v0.4.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* **http:** reuse connections through a configurable keep-alive pool ([#10](https://github.com/FloTorch/flotest/issues/10)) ([8336885](https://github.com/FloTorch/flotest/commit/83368858c3e7ae9492ed9f8ac5cef9acd11a175a))
+* **runner:** cachePercentage now genuinely resends a previous prompt ([fcfb3d7](https://github.com/FloTorch/flotest/commit/fcfb3d7f6fb8398964d324e61a2c626bfebaf89c))
+* **runner:** cachePercentage now genuinely resends a previous prompt ([c349bf5](https://github.com/FloTorch/flotest/commit/c349bf5e93066a0be0c1a9eeae1340ddb99f75cd))
+
 ## [0.4.0](https://github.com/FloTorch/flotest/compare/v0.3.3...v0.4.0) (2026-04-30)
 
 
