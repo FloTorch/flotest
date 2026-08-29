@@ -8,12 +8,8 @@ import type { PromptRecord } from "../../src/types/prompt.ts";
 import { makeConfig } from "../helpers.ts";
 
 /**
- * `cachePercentage` used to only flip a random label on `RequestMetrics.cacheHit` —
- * it never changed which prompt was actually sent, so a real backend's prefix
- * cache always measured a 0% hit rate regardless of the configured percentage
- * (confirmed live: vLLM's own "Prefix cache hit rate" logged 0.0% throughout a
- * run configured with cachePercentage=25). These tests pin the fix: a "cache
- * hit" request must resend the EXACT text of a previously-issued prompt.
+ * A "cache hit" request must resend the exact text of a previously issued
+ * prompt, and `RequestMetrics.cacheHit` must reflect what was actually sent.
  */
 
 class FakeBackend implements IBackend {

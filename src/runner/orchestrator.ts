@@ -32,12 +32,8 @@ export class ConcurrencyOrchestrator {
   private results: RequestMetrics[] = [];
   private aborted = false;
   private onProgress?: ProgressCallback;
-  // Verbatim text of prompts already sent, so a "cache hit" request can resend
-  // an EXACT previous prompt — giving vLLM's (or any backend's) prefix cache a
-  // real, full-length match to find. Previously `cachePercentage` only flipped
-  // a random label on the request metrics; it never changed what was actually
-  // sent, so every request was distinct content and the real cache hit rate
-  // was always 0% regardless of the configured percentage.
+  // Prompts already sent, so a "cache hit" request can resend an exact previous
+  // prompt and give the backend's prefix cache a full-length match.
   private recentPrompts: PromptRecord[] = [];
 
   constructor(
